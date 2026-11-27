@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowRight, Box, PencilRuler } from "lucide-react";
 import { Photo } from "@/components/Photo";
 import { FeaturedObject } from "./FeaturedObject";
 import { WorkshopCarousel } from "./WorkshopCarousel";
@@ -12,13 +13,16 @@ export function StoreHome({ products, demo = false, composition = "a" }: {
 }) {
   const ordered = [...products].sort((a,b) => availabilityOrder(a) - availabilityOrder(b));
   return <div className={`home-composition composition-${composition}`}>
-    <FeaturedObject products={ordered} />
+    <FeaturedObject products={ordered} subtitle="Коллекционные миниатюры ручной работы" />
     <nav className="home-collections" aria-label="Коллекции">
-      <Link href="/catalog?availability=ready">В наличии</Link>
-      <Link href="/catalog?availability=made">Под заказ</Link>
-      <Link href="/catalog">Весь каталог</Link>
+      <Link href="/catalog?availability=ready">
+        <Box aria-hidden /><span><strong>Готовые миниатюры</strong><small>Выберите из коллекции</small></span><ArrowRight aria-hidden />
+      </Link>
+      <Link href="/catalog?availability=made">
+        <PencilRuler aria-hidden /><span><strong>Создадим на заказ</strong><small>По образцу или вашей идее</small></span><ArrowRight aria-hidden />
+      </Link>
     </nav>
-    {ordered.length > 0 && <WorkshopCarousel products={ordered} />}
+    <WorkshopCarousel products={ordered} />
     <section className="home-project">
       <div className="home-project-photo"><Photo photo={materials} sizes="(max-width: 760px) 95vw, 45vw" /></div>
       <div><h2>Индивидуальный проект</h2>

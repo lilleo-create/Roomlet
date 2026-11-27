@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useLayoutEffect, useRef } from "react";
 import KeenSlider from "keen-slider";
 import type { KeenSliderInstance } from "keen-slider";
@@ -48,14 +49,15 @@ export function WorkshopCarousel({products}: {products: readonly Product[]}) {
     instance.current = slider;
     return () => { slider.destroy(); instance.current = null; };
   }, [products]);
-  return <section className="home-workshop" aria-labelledby="workshop-title" aria-roledescription="карусель">
+  return <section className="home-workshop" aria-labelledby="workshop-title" aria-roledescription={products.length > 1 ? "карусель" : undefined}>
     <div className="home-workshop-head"><h2 id="workshop-title">Из мастерской</h2>
+      <Link className="home-all-works" href="/catalog">Все работы</Link>
       {products.length > 1 && <div className="home-workshop-controls">
         <button aria-label="Предыдущая работа" onClick={() => instance.current?.prev()}><ChevronLeft /></button>
         <button aria-label="Следующая работа" onClick={() => instance.current?.next()}><ChevronRight /></button>
       </div>}
     </div>
-    <div className="keen-slider workshop-track" ref={viewport} tabIndex={products.length > 1 ? 0 : undefined}
+    {products.length > 0 && <div className="keen-slider workshop-track" ref={viewport} tabIndex={products.length > 1 ? 0 : undefined}
       aria-label="Работы мастерской" role="group"
       onKeyDown={event => {
         if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
@@ -67,6 +69,6 @@ export function WorkshopCarousel({products}: {products: readonly Product[]}) {
         onClickCapture={event => {
           if ((event.target as Element).closest("a")) try { sessionStorage.setItem(positionKey,identity(p)); } catch { /* Optional storage. */ }
         }}><ProductCard product={p} photo={index === 0 ? p.media[1] : undefined} /></div>)}
-    </div>
+    </div>}
   </section>;
 }

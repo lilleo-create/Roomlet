@@ -118,7 +118,7 @@ test("публичные страницы не содержат ссылок в 
 test("мобильная лента фильтров прокручивается в одну строку и открывает нужные работы", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 568 });
   await openDemo(page, "/");
-  await page.getByRole("link", { name: "Под заказ", exact: true }).click();
+  await page.getByRole("link", { name: /Создадим на заказ/ }).click();
   const rail = page.getByRole("group", { name: "Доступность" });
   await expect(rail.getByRole("button", { name: "Под заказ" })).toHaveAttribute("aria-pressed", "true");
   const geometry = await rail.evaluate(row => ({

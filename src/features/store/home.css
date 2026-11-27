@@ -45,7 +45,15 @@
 .home-project-photo { position:relative; overflow:hidden; border-radius:var(--radius-image); }
 .featured-link { display:block; }
 .featured-link .store-hero-caption { padding:10px 0; font:650 clamp(16px,2vw,24px)/1.3 var(--font-display); }
-.home-collections { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:-24px; }
-.home-collections a { display:inline-flex; align-items:center; min-height:44px; padding:4px 14px; color:var(--ink); border:1px solid var(--border); border-radius:var(--radius-image); font:var(--small); }
-.home-collections a:last-child { color:var(--primary-hover); border:0; padding-inline:4px; }
-@media(max-width:360px){ .home-collections { gap:6px; } .home-collections a { padding-inline:8px; } }
+.home-composition .store-hero-copy .home-subtitle { margin:8px 0 2px; max-width:none; color:var(--muted); font:var(--small); text-wrap:balance; }
+.home-collections { display:grid; margin-top:-24px; }
+.home-collections a { display:grid; grid-template-columns:24px minmax(0,1fr) 20px; align-items:center; gap:16px; padding:15px 0; border-bottom:1px solid var(--border); }
+.home-collections a:first-child { border-top:1px solid var(--border); }
+.home-collections a > svg { width:24px; height:24px; stroke-width:1.5; }
+.home-collections a > svg:last-child { width:19px; justify-self:end; }
+.home-collections a > span { display:grid; gap:3px; }
+.home-collections strong { font:650 18px/1.3 var(--font-display); letter-spacing:-.025em; }
+.home-collections small { font:var(--small); color:var(--muted); }
+.home-collections a:hover, .home-all-works:hover { color:var(--primary-hover); }
+.home-workshop-head { gap:12px; }
+.home-workshop-head .home-all-works { display:inline-flex; align-items:center; min-height:44px; flex:none; margin-left:auto; font:var(--small); color:var(--primary-hover); }

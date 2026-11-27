@@ -3,11 +3,12 @@ import { ArrowUpRight } from "lucide-react";
 import { Photo } from "@/components/Photo";
 import { statusLabel, type Product } from "./products";
 
-export function FeaturedObject({ heading: Heading = "h1", products }: { heading?: "h1" | "h3"; products: readonly Product[] }) {
+export function FeaturedObject({ heading: Heading = "h1", products, subtitle }: { heading?: "h1" | "h3"; products: readonly Product[]; subtitle?: string }) {
   const featured = products[0];
   return <section className="store-hero" aria-label="Мастерская миниатюр">
     <div className="store-hero-copy">
       <Heading className="store-hero-title">Комнаты <span className="store-hero-line">в миниатюре<span className="store-hero-dot">.</span></span></Heading>
+      {subtitle && <p className="home-subtitle">{subtitle}</p>}
     </div>
     <figure className="store-hero-piece">
       {featured ? <Link className="featured-link" href={`/product/${featured.slug}`}>
