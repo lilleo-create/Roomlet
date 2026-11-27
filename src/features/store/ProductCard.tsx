@@ -19,8 +19,11 @@ export function FavoriteButton({ product }: { product: Product }) {
 }
 
 export function ProductStatus({ product }: { product: Product }) {
-  const tone = product.ready ? "success" : product.status === "upcoming" ? "primary" : "neutral";
-  return <StatusTag tone={tone}>{statusLabel(product)}</StatusTag>;
+  const tone = product.status === "upcoming" || (!product.ready && product.made) ? "primary" : product.ready ? "success" : "neutral";
+  return <span className="store-product-status">
+    <StatusTag tone={tone}>{statusLabel(product)}</StatusTag>
+    {product.status === "active" && product.ready && product.made && <StatusTag tone="primary">Под заказ</StatusTag>}
+  </span>;
 }
 
 export function ProductCard({ product }: { product: Product }) {

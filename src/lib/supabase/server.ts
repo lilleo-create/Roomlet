@@ -3,10 +3,11 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { supabaseConfig } from "./config";
 
-export async function createRoomletClient() {
+export async function createRoomletClient(context: "account" | "recovery" = "account") {
   const jar = await cookies();
   const {url,key} = supabaseConfig();
   return createServerClient(url,key,{
+    ...(context === "recovery" ? { cookieOptions: { name: "roomlet-recovery", path: "/profile", httpOnly: true, sameSite: "lax" as const } } : {}),
     cookies: {
       getAll: () => jar.getAll(),
       setAll(values) {

@@ -1,6 +1,6 @@
-# Roomlet · Phase 02.2
+# Roomlet · Phase 02.3
 
-Магазин и Studio работают с общим каталогом Supabase. Покупателю доступны магазин и его профиль, а мастер и владелец могут открыть Studio из своего профиля или по прямому адресу. Этап основан на Phase 02.1 (`a0d82e6`), рабочая ветка — `feature/backend-studio`.
+Магазин и Studio работают с общим каталогом Supabase. Покупателю доступны магазин и его профиль, а мастер и владелец могут открыть Studio из своего профиля или по прямому адресу. Этап основан на Phase 02.2 (`7335343`), рабочая ветка — `feature/backend-studio`.
 
 ## Локальный демонстрационный каталог
 
@@ -79,3 +79,5 @@ npm run test:e2e
 [Устройство приложения](docs/ARCHITECTURE.md) · [Схема и доступ](docs/SCHEMA.md) · [Инструкция по ассортименту](docs/INVENTORY.md) · [Дизайн-система](docs/DESIGN_SYSTEM.md) · [План следующих этапов](docs/ROADMAP.md).
 
 [Отчёт и скриншоты Phase 02.2](docs/PHASE_02_2.md)
+
+[Аккаунт и регистрация](docs/ACCOUNT.md) · [Telegram Mini App и OIDC](docs/AUTH_TELEGRAM.md) · [Отчёт и снимки Phase 02.3](docs/PHASE_02_3.md)

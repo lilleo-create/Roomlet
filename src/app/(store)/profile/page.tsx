@@ -25,7 +25,7 @@ export default async function ProfilePage() {
   const menu: MenuItem[] = [
     { label: "Мои заказы", icon: Package, href: "/profile/orders" },
     { label: "Избранное", icon: Heart, href: "/favorites" },
-    { label: "Уведомления", icon: Bell },
+    { label: "Уведомления", icon: Bell, href: account ? "/profile/notifications" : undefined },
     ...(account?.role === "owner" ? [{ label: "Управление командой", icon: UsersRound, href: "/studio/team" }] : []),
     { label: "Мои бронирования", icon: CalendarDays },
     { label: "Связаться с мастерской", icon: Mail },
@@ -38,10 +38,10 @@ export default async function ProfilePage() {
       <span className="profile-avatar" aria-hidden="true"><UserRound size={23} strokeWidth={1.65} /></span>
       <div className="profile-identity-copy">
         <p className="profile-name">{account ? account.name || account.email || "Пользователь Roomlet" : "Гость"}</p>
-        <p className="profile-role">{account ? `Личный кабинет · ${roleLabels[account.role]}` : "Вход по электронной почте"}</p>
+        <p className="profile-role">{account ? `Личный кабинет · ${roleLabels[account.role]}` : "Личный кабинет"}</p>
       </div>
-      {!account && <Link href="/profile/login" className="profile-signin">Войти <ArrowUpRight size={16} aria-hidden /></Link>}
     </div>
+    {!account && <div className="profile-guest-actions"><Link className="store-primary-link" href="/profile/login">Войти <ArrowUpRight size={16} aria-hidden /></Link><Link className="profile-signin" href="/profile/register">Создать аккаунт</Link></div>}
     {staff && <Link href="/studio" className="profile-studio">
       <span className="profile-studio-icons"><LayoutGrid size={22} strokeWidth={1.7} aria-hidden /><ArrowUpRight size={18} aria-hidden /></span>
       <span className="profile-studio-title">Roomlet Studio</span>

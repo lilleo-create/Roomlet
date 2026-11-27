@@ -38,8 +38,8 @@ test("Phase 02 · PostgreSQL, RLS и Storage", async t => {
   const card={slug:"test",title:"Столик",category_id:category,price_minor:12003,currency:"RUB",made_to_order:true,requires_sketch:false,ready_quantity:2,cost_minor:4200,planned_minutes:60,status:"draft"};
   const save=(changes:Record<string,unknown>={})=>db.query("select public.save_product($1,$2::jsonb)",[id,JSON.stringify({...card,...changes})]);
   const version=async()=> (await db.query<{stamp:string}>("select updated_at::text stamp from public.products where id=$1",[id])).rows[0].stamp;
-  await t.test("на всех 17 таблицах включена RLS, регистрация создаёт клиента",async()=>{
-    assert.equal((await db.query<{n:number}>("select count(*)::int n from pg_tables where schemaname='public' and rowsecurity")).rows[0].n,17);
+  await t.test("на всех прикладных таблицах включена RLS, регистрация создаёт клиента",async()=>{
+    assert.equal((await db.query<{n:number}>("select count(*)::int n from pg_tables where schemaname='public' and rowsecurity")).rows[0].n,18);
     await asUser(customer);
     assert.deepEqual((await db.query("select role from profiles")).rows,[{role:"customer"}]);
     assert.deepEqual((await db.query("select id from orders")).rows,[]);
@@ -91,6 +91,22 @@ test("Phase 02 · PostgreSQL, RLS и Storage", async t => {
     await assert.rejects(db.query("select * from blocked_periods"),{code:"42501"});
   });
 
+  await t.test("предпочтения и отдельное согласие принадлежат пользователю", async () => {
+    await asUser();
+    await assert.rejects(db.query("select save_notification_preferences(true,true)"), {code:"42501"});
+    await asUser(customer);
+    for (const [orders, marketing] of [[true,false],[true,true],[false,true],[false,false]]) {
+      await db.query("select save_notification_preferences($1,$2)", [orders,marketing]);
+    }
+    assert.equal((await db.query<{ order_updates: boolean }>("select order_updates from notification_preferences")).rows[0].order_updates,false);
+    await asUser(maker);
+    assert.equal((await db.query("select * from notification_preferences")).rows.length,0);
+    await assert.rejects(db.query("insert into notification_preferences(profile_id,marketing_opt_in) values ($1,true)", [customer]),{code:"42501"});
+    await assert.rejects(db.query("select * from roomlet_private.marketing_consent_events"),{code:"42501"});
+    await db.exec("reset role");
+    const events = await db.query<{ opted_in: boolean }>("select opted_in from roomlet_private.marketing_consent_events where profile_id=$1 order by id",[customer]);
+    assert.deepEqual(events.rows.map(row => row.opted_in), [true,false]);
+  });
   await t.test("владелец управляет мастерами, роли проверяются заново для того же пользователя", async () => {
     await db.exec("reset role");
     const owner = randomUUID();

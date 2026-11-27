@@ -84,3 +84,22 @@ test("публичные страницы не содержат ссылок в 
     await expect(page.locator('img[src*="/objects/"]')).toHaveCount(0);
   }
 });
+
+test("мобильная лента фильтров прокручивается в одну строку и открывает нужные работы", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await openDemo(page, "/");
+  await page.getByRole("link", { name: /Сделаем на.заказ/ }).click();
+  const rail = page.getByRole("group", { name: "Доступность" });
+  await expect(rail.getByRole("button", { name: "Под заказ" })).toHaveAttribute("aria-pressed", "true");
+  const geometry = await rail.evaluate(row => ({
+    rows: new Set([...row.querySelectorAll("button")].map(button => button.offsetTop)).size,
+    scrolls: row.scrollWidth > row.clientWidth,
+  }));
+  expect(geometry).toEqual({ rows: 1, scrolls: true });
+  await page.goto("/catalog?availability=archive");
+  const archive = rail.getByRole("button", { name: "Архив" });
+  await expect(archive).toHaveAttribute("aria-pressed", "true");
+  await expect.poll(() => rail.evaluate(row => row.scrollLeft)).toBeGreaterThan(0);
+  await expect(page.getByRole("article")).toHaveCount(1);
+  await expect(page.getByRole("article")).toContainText("Ателье художника");
+});

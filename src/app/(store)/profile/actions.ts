@@ -2,12 +2,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createRoomletClient } from "@/lib/supabase/server";
-import { endSession, passwordLogin } from "@/lib/supabase/password";
+import { endSession } from "@/lib/supabase/password";
 import { readAccount } from "@/features/profile/session";
-
-export async function enterProfile(form: FormData) {
-  await passwordLogin(form, "/profile");
-}
 
 export async function leaveProfile() {
   await endSession("/profile");
@@ -15,7 +11,7 @@ export async function leaveProfile() {
 
 export async function updateDisplayName(form: FormData) {
   const account = await readAccount();
-  if (!account) redirect("/profile/login");
+  if (!account) redirect("/profile/login?next=/profile/settings");
   const name = String(form.get("display_name") ?? "").trim();
   if (Array.from(name).length > 100) redirect("/profile/settings?result=invalid");
 

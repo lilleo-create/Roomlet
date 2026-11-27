@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PageHeading, EmptyState, SearchInput, Select } from "@/components/ui";
 import { track } from "@/lib/analytics";
 import { ProductCard } from "./ProductCard";
@@ -12,6 +12,17 @@ type FilterProps = {
   query: string; onQuery: (value: string) => void;
 };
 export function FilterBar({ products, demo, availability, onAvailability, category, onCategory, query, onQuery }: FilterProps) {
+  const rail = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const row = rail.current;
+    const selected = row?.querySelector<HTMLButtonElement>('[aria-pressed="true"]');
+    if (!row || !selected || row.scrollWidth <= row.clientWidth) return;
+    const frame = row.getBoundingClientRect();
+    const pill = selected.getBoundingClientRect();
+    if (pill.right > frame.right) row.scrollLeft += pill.right - frame.right + 8;
+    else if (pill.left < frame.left) row.scrollLeft += pill.left - frame.left - 8;
+  }, [availability]);
+
   return <div className="store-filters">
     <div className="store-filter-fields">
       <SearchInput label="Поиск" placeholder="Название или номер" value={query} maxLength={100} onChange={e => onQuery(e.target.value)} />
@@ -19,7 +30,7 @@ export function FilterBar({ products, demo, availability, onAvailability, catego
         <option value="">Все категории</option>{Array.from(new Set(products.map(p => p.category))).map(c => <option key={c}>{c}</option>)}
       </Select>
     </div>
-    <div className="store-tabs" role="group" aria-label="Доступность">
+    <div ref={rail} className="store-tabs" role="group" aria-label="Доступность">
       {(Object.keys(availabilityNames) as Availability[]).filter(v => demo || (v !== "archive" && v !== "upcoming")).map(value => <button key={value} type="button" aria-pressed={value === availability} onClick={() => onAvailability(value)}>{availabilityNames[value]}</button>)}
     </div>
   </div>;

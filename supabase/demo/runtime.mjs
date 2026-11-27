@@ -106,7 +106,7 @@ try {
         try{return new Response(await execute(action));} catch(e){console.error(e.message);return new Response("Operation failed.",{status:500});} finally{busy=false;}
       }
       const rest=/^\/rest\/v1\/(?:rpc\/)?[a-z][a-z0-9_]*$/.test(url.pathname);
-      const auth=/^\/auth\/v1\/(token|logout|user)$/.test(url.pathname);
+      const auth=/^\/auth\/v1\/(token|logout|user|signup|recover|verify)$/.test(url.pathname);
       const media=url.pathname.startsWith("/storage/v1/object/");
       if(!rest && !auth && !media) return new Response(null,{status:404});
       if(request.headers.get("apikey")!==keys.publishableKey && !(media && request.method==="GET" && url.pathname.startsWith("/storage/v1/object/sign/") && url.searchParams.has("token"))) {

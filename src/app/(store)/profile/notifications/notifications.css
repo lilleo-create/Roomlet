@@ -1,0 +1,14 @@
+.notification-form { gap: var(--space-4); }
+.notification-form > label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  border-bottom: 1px solid var(--border);
+  padding: var(--space-3) 0 var(--space-5);
+  cursor: pointer;
+}
+.notification-form label span { display: grid; gap: var(--space-2); }
+.notification-form small { font: var(--small); color: var(--muted); }
+.notification-form input[type="checkbox"] { width: 22px; height: 22px; flex-shrink: 0; accent-color: var(--primary); }
+.notification-form > button { justify-self: start; }

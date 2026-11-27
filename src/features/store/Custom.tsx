@@ -18,7 +18,12 @@ export function CustomPage() {
     track("custom_request_submitted", { demo: true });
     setSent(true);
   }
-  if (!demo) return <section className="store-page"><PageHeading title="Индивидуальный проект" /><EmptyState variant="project" title="Приём заявок пока закрыт" action={<Link href="/catalog">Посмотреть коллекцию</Link>} /></section>;
+  if (!demo) return <section className="store-page store-narrow">
+    <PageHeading title="Индивидуальный проект" description="В основе такой миниатюры — ваш интерьер, эскиз или фотография." />
+    <EmptyState variant="project" title="Приём заявок пока закрыт"
+      description="В каталоге можно посмотреть модели для изготовления по образцу."
+      action={<Link className="store-primary-link" href="/catalog?availability=made">В каталог под заказ</Link>} />
+  </section>;
   return <section className="store-page store-narrow"><PageHeading title="Индивидуальный проект" description={sent ? undefined : "Опишите интерьер и важные детали будущей миниатюры."} />
     {sent ? <EmptyState variant="saved" title="Идея сохранена" description="Демо-черновик доступен в разделе «Мои заказы»." action={<Link href="/profile/orders" className="store-primary-link">Мои заказы</Link>} />
       : <form onSubmit={submit} className="store-form">

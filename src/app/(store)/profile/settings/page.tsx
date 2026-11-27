@@ -7,7 +7,7 @@ import { updateDisplayName } from "../actions";
 
 export default async function ProfileSettings({ searchParams }: { searchParams: Promise<{ result?: string }> }) {
   const account = await readAccount();
-  if (!account) redirect("/profile/login");
+  if (!account) redirect("/profile/login?next=/profile/settings");
   const { result } = await searchParams;
   return <section className="store-page store-narrow profile-subpage">
     <Link href="/profile" className="store-back"><ArrowLeft size={16} aria-hidden /> Мой профиль</Link>
@@ -16,6 +16,7 @@ export default async function ProfileSettings({ searchParams }: { searchParams: 
       <Input label="Имя в профиле" name="display_name" defaultValue={account.name} maxLength={100}
         hint="Если оставить поле пустым, в профиле будет виден адрес почты." autoComplete="name" />
       <dl className="profile-account-details"><div><dt>Почта</dt><dd>{account.email || "Не указана"}</dd></div>
+        <div><dt>Telegram</dt><dd>Привязка пока недоступна</dd></div>
         <div><dt>Роль</dt><dd>{roleLabels[account.role]}</dd></div></dl>
       {result === "saved" && <p role="status">Настройки сохранены.</p>}
       {result === "invalid" && <p role="alert">В имени должно быть не больше 100 символов.</p>}

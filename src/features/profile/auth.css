@@ -1,0 +1,30 @@
+.account-page { max-width: 952px; margin: 0 auto; padding-block: clamp(24px, 4vw, 60px) var(--space-12); }
+.account-back, .account-text-link { display: inline-flex; align-items: center; gap: var(--space-2); min-height: var(--touch-target); font: var(--small); }
+.account-back { margin-bottom: clamp(12px, 2.7vw, 36px); color: var(--muted); }
+.account-layout { display: grid; gap: var(--space-6); }
+.account-heading h1 { margin: 0; font: 650 clamp(32px, 4.9vw, 62px)/1.04 var(--font-display); letter-spacing: -.045em; text-wrap: balance; }
+.account-heading p { margin: var(--space-3) 0 0; max-width: 34ch; color: var(--muted); text-wrap: pretty; }
+.account-body, .account-form, .account-receipt { display: grid; min-width: 0; gap: var(--space-4); }
+.account-telegram { display: flex; justify-content: center; align-items: center; gap: var(--space-3); width: 100%; min-height: var(--button-height); padding: 10px 16px; background: transparent; color: var(--muted); border: 1px solid var(--border); border-radius: var(--radius-control); font-weight: 550; }
+.account-method > p { margin: 8px 0 20px; color: var(--muted); font: var(--caption); text-align: center; }
+.account-divider { display: flex; align-items: center; gap: var(--space-3); font: var(--caption); color: var(--muted); }
+.account-divider::before, .account-divider::after { content: ""; height: 1px; flex: 1; background: var(--border); }
+.account-form .ui-control { background: var(--surface); min-height: var(--input-height); }
+.account-password { position: relative; }
+.account-password input { padding-inline-end: 52px; }
+.account-eye { position: absolute; inset-inline-end: 3px; top: calc(20px + var(--space-2) + 2px); width: 44px; height: 44px; display: grid; place-items: center; color: var(--muted); background: none; border: 0; }
+.account-forgot { justify-self: end; font: var(--small); margin-top: -8px; padding-block: 5px; }
+.account-form .ui-btn { width: 100%; }
+.account-name summary { cursor: pointer; font: var(--small); padding-block: 8px; }
+.account-name[open] summary { margin-bottom: 4px; }
+.account-switch, .account-notice, .account-error, .account-receipt p { margin: 0; font: var(--small); }
+.account-switch { text-align: center; color: var(--muted); margin-top: 2px; }
+.account-switch a, .account-text-link, .account-forgot { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.account-error { color: var(--error); }
+.account-notice, .account-receipt > svg { color: var(--success); }
+.account-receipt { align-content: start; justify-items: start; }
+@media (min-width: 761px) {
+  .account-layout { grid-template-columns: minmax(0, 1fr) minmax(290px, 396px); align-items: start; gap: clamp(40px, 7vw, 110px); padding-top: 32px; border-top: 1px solid var(--border); }
+  .account-heading { position: sticky; top: 32px; }
+  .account-heading p { margin-top: var(--space-5); }
+}

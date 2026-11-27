@@ -1,24 +1,43 @@
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight, PencilRuler } from "lucide-react";
+import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { FeaturedObject } from "./FeaturedObject";
 import { ProductCard } from "./ProductCard";
 import type { Product } from "./products";
-import { PageHeading, EmptyState } from "@/components/ui";
 
-export function StoreHome({products, demo = false}: {products: readonly Product[]; demo?: boolean}) {
-  if (!products.length) return <section className="store-page store-empty-hero"><PageHeading title="Интерьеры в миниатюре" />
-    <EmptyState variant="catalog" title="Готовим новые миниатюры" description="Здесь появятся новые работы мастерской." /></section>;
+const collections = [
+  { title: "Готовые работы", detail: "Миниатюры в наличии", availability: "ready" },
+  { title: "Сделаем на заказ", detail: "Изготовление по образцу", availability: "made" },
+] as const;
+
+export function StoreHome({ products, demo = false }: { products: readonly Product[]; demo?: boolean }) {
   return <>
     <FeaturedObject products={products} />
-    <section className="store-section"><div className="store-section-head"><h2>Новые работы</h2><Link href="/catalog">Весь каталог <ArrowRight size={16} /></Link></div>
-      <div className="store-grid">{products.slice(0, 4).map(product => <ProductCard key={product.slug} product={product} />)}</div>
-    </section>
-    <section className="store-section"><div className="store-section-head"><h2>Коллекции</h2></div>
+    <section className="store-section store-collections" aria-labelledby="home-collections">
+      <div className="store-section-head">
+        <h2 id="home-collections">Коллекции</h2>
+        {demo && <div className="store-collection-links">
+          <Link href="/catalog?availability=upcoming">Скоро</Link>
+          <Link href="/catalog?availability=archive">Архив</Link>
+        </div>}
+      </div>
       <div className="store-directory">
-        {[["Доступные изделия", "ready"], ["Изготовление под заказ", "made"], ...(demo ? [["Будущие коллекции", "upcoming"], ["Архив работ", "archive"]] : [])].map(([title, availability]) =>
-          <Link key={availability} href={`/catalog?availability=${availability}`}>{title}<ArrowUpRight size={22} /></Link>)}
+        {collections.map(({ title, detail, availability }) =>
+          <Link key={availability} href={`/catalog?availability=${availability}`}>
+            <span className="store-directory-title">{title}</span>
+            <ArrowUpRight size={18} aria-hidden />
+            <span className="store-directory-detail">{detail}</span>
+          </Link>)}
       </div>
     </section>
-    {demo && <section className="store-custom-banner"><PencilRuler aria-hidden="true" size={34} strokeWidth={1.3} /><div><h2>Индивидуальный проект</h2><p>Опишите интерьер, который хотите увидеть в миниатюре.</p></div><Link href="/custom">Описать идею <ArrowRight size={18} /></Link></section>}
+    {products.length > 0 && <section className="store-section" aria-labelledby="home-new-works">
+      <div className="store-section-head"><h2 id="home-new-works">Новые работы</h2><Link href="/catalog">Весь каталог <ArrowRight size={16} aria-hidden /></Link></div>
+      <div className="store-grid">{products.slice(0, 4).map(product => <ProductCard key={product.slug} product={product} />)}</div>
+    </section>}
+    <section className="store-custom-banner">
+      <div><h2>Индивидуальный проект</h2>
+        <p>{demo ? "Воссоздайте комнату из любимой истории или из собственных воспоминаний." : "Миниатюра по вашей идее. Приём новых заявок пока закрыт."}</p>
+      </div>
+      <Link href="/custom">{demo ? "Описать идею" : "Об индивидуальном заказе"} <ArrowRight size={18} aria-hidden /></Link>
+    </section>
   </>;
 }
