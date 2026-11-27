@@ -1,6 +1,8 @@
 import "server-only";
+import { fork } from "node:child_process";
 import { Worker } from "node:worker_threads";
 import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { createClient } from "@supabase/supabase-js";
 
 type Connection = {url:string;key:string;email:string;password:string};
@@ -12,12 +14,16 @@ function connect() {
   if (state.connection) return state.connection;
   // Only invoked after the current hosted account passes the workshop role check.
   state.connection = new Promise<Connection>((resolve,reject) => {
-    const worker = new Worker(join(process.cwd(),"supabase/demo/runtime.mjs"), {
-      execArgv: [], workerData:{mode:"roomlet-showcase"},
-      env:{ PATH:process.env.PATH, SystemRoot:process.env.SystemRoot, TEMP:process.env.TEMP,
-        TMP:process.env.TMP, TMPDIR:process.env.TMPDIR, HOME:process.env.HOME, NODE_ENV:"production" },
-    });
-    const timer = setTimeout(() => void worker.terminate(), 60000);
+    const runtime = join(process.cwd(), "supabase/demo/runtime.mjs");
+    const env: NodeJS.ProcessEnv = { NODE_ENV:"production", TMPDIR:tmpdir(), TEMP:tmpdir(), TMP:tmpdir() };
+    for (const key of ["PATH","SystemRoot","HOME"]) {
+      if (process.env[key]) env[key] = process.env[key];
+    }
+    const worker = process.platform === "linux"
+      ? fork(runtime, ["showcase"], {env, execArgv:[], stdio:["ignore","ignore","inherit","ipc"]})
+      : new Worker(runtime, {env, execArgv:[], workerData:{mode:"roomlet-showcase"}});
+    const stop = () => worker instanceof Worker ? void worker.terminate() : void worker.kill("SIGTERM");
+    const timer = setTimeout(stop, 60000);
     const stopped = () => {
       clearTimeout(timer);
       state.connection = undefined;
@@ -29,7 +35,7 @@ function connect() {
     worker.once("message", message => {
       const config = message as Connection;
       if (!/^http:\/\/127\.0\.0\.1:\d+$/.test(config.url) || !config.key || !config.password) {
-        void worker.terminate(); return;
+        stop(); return;
       }
       clearTimeout(timer);
       resolve(config);

@@ -9,7 +9,8 @@ export async function enterShowcase() {
   await requireAccountStaff("demo-login");
   if (!localDemoEnabled()) {
     // Initialize first, so a cold start failure cannot strand the visitor in demo mode.
-    await showcaseClient();
+    try { await showcaseClient(); }
+    catch { redirect("/demo?error=unavailable"); }
     (await cookies()).set("roomlet-environment","demo",{httpOnly:true,secure:process.env.ROOMLET_SITE_URL?.startsWith("https://") ?? false,sameSite:"lax",path:"/"});
   }
   redirect("/");

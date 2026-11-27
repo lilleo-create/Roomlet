@@ -1,5 +1,5 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
-import { readFile, writeFile, mkdir, mkdtemp } from "node:fs/promises";
+import { readFile, writeFile, mkdir, mkdtemp, rm } from "node:fs/promises";
 import { parentPort, workerData } from "node:worker_threads";
 import { tmpdir } from "node:os";
 import { resolve, join } from "node:path";
@@ -9,7 +9,8 @@ import { cleanDemo, seedDemo } from "./seed.mjs";
 import { previewAccounts, provisionPreviewAccounts } from "./accounts.mjs";
 
 const apiHost = "127.0.0.1";
-const showcase = workerData?.mode === "roomlet-showcase" && parentPort !== null;
+const childShowcase = process.argv[2] === "showcase" && typeof process.send === "function";
+const showcase = childShowcase || (workerData?.mode === "roomlet-showcase" && parentPort !== null);
 let apiPort = showcase ? 0 : 54331;
 let apiURL = "http://" + apiHost + ":" + apiPort;
 const state = showcase ? await mkdtemp(join(tmpdir(), "roomlet-showcase-")) : resolve(".roomlet-demo");
@@ -54,22 +55,37 @@ await new Promise((ok,fail)=>apiServer.once("error",fail).listen(apiPort,apiHost
 apiPort = apiServer.address().port;
 apiURL = "http://" + apiHost + ":" + apiPort;
 let configPath = resolve("supabase/demo/config.toml");
-if (showcase) {
-  const template = await readFile(configPath, "utf8");
-  configPath = join(state, "config.toml");
-  await writeFile(configPath, template.replaceAll("54331", String(apiPort))
-    .replace("enable_confirmations = true","enable_confirmations = false")
-    .replace('".roomlet-demo/database"', '"memory://"'), { mode:0o600 });
-}
+let native;
 let connection;
 let closeWeb;
-export async function closePreview() {
-  await closeWeb?.();
-  apiServer.close();
-  await connection?.close();
+let shutdown;
+export function closePreview() {
+  return shutdown ??= (async () => {
+    await closeWeb?.();
+    apiServer.close();
+    try { await connection?.close(); }
+    finally {
+      await native?.stop();
+      if (showcase) await rm(state, {recursive:true,force:true});
+    }
+  })();
 }
 
 try {
+  if (showcase) {
+    // Keep both API and SQL credentials inside this private, disposable directory.
+    process.env.TMPDIR = process.env.TEMP = process.env.TMP = state;
+    if (process.platform === "linux") {
+      const { startShowcaseDatabase } = await import("./showcase-database.mjs");
+      native = await startShowcaseDatabase(state);
+    }
+    const template = await readFile(configPath, "utf8");
+    configPath = join(state, "config.toml");
+    await writeFile(configPath, template.replaceAll("54331", String(apiPort))
+      .replace("enable_confirmations = true","enable_confirmations = false")
+      .replace('driver = "pglite"', native ? 'driver = "postgres"' : 'driver = "pglite"')
+      .replace('".roomlet-demo/database"', JSON.stringify(native ? "postgres:///postgres" : "memory://")), { mode:0o600 });
+  }
   Object.assign(process.env, {EXPERIMENTAL_STORAGE:"1", ROOMLET_DEMO_JWT_SECRET:keys.jwtSecret,
     ROOMLET_DEMO_PUBLISHABLE_KEY:keys.publishableKey, ROOMLET_DEMO_SERVICE_KEY:keys.serviceKey});
   const { createApi } = await import("@supabase/lite/cli");
@@ -84,7 +100,7 @@ try {
   }
   connection = app.connection;
   await app.ensureSystemSchema();
-  const db = connection.driver;
+  const db = native ? native.queries(connection.driver) : connection.driver;
   // A fresh Lite PostgreSQL cluster provides auth.uid() and Storage tables. Add the
   // standard PostgREST roles and Storage grants before applying the hosted migration.
   await db.exec(`do $$ begin
@@ -151,17 +167,24 @@ try {
       return app.fetch(request,{peerAddress:env.incoming.socket.remoteAddress});
     }, {overrideGlobalObjects:false});
     if (showcase) {
-      parentPort.postMessage({url:apiURL, key:keys.publishableKey, email:keys.email, password:keys.password});
+      const config = { url:apiURL, key:keys.publishableKey, email:keys.email, password:keys.password };
+      if (childShowcase) process.send(config);
+      else parentPort.postMessage(config);
     } else console.log("Roomlet demo API:",apiURL);
     if(command==="dev"){
       const { startPreviewWeb } = await import("./web.mjs");
       closeWeb = await startPreviewWeb(keys.publishableKey);
+    }
+    if (childShowcase) {
+      process.once("disconnect", () => closePreview().finally(() => process.exit(0)));
+      if (!process.connected) await closePreview().finally(() => process.exit(0));
     }
     process.once("SIGINT",()=>closePreview().then(()=>process.exit(0)));
     process.once("SIGTERM",()=>closePreview().then(()=>process.exit(0)));
   }
 } catch(error) {
   await closePreview();
-  console.error(error.stack || error);
+  console.error(showcase ? "Demo database startup failed: " + String(error?.message ?? "startup interrupted").replace(/postgres(?:ql)?:\/\/[^\s]+/gi,"[private database]") : error.stack || error);
+  if (showcase) throw new Error("Demo database unavailable");
   process.exitCode=1;
 }
