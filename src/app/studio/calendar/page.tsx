@@ -1,10 +1,8 @@
-import { requireDemo } from "@/features/studio/session";
-import { todayInStudio } from "@/features/booking/calendar";
-import { calendarFixture } from "@/features/studio/data";
-import { StudioCalendar } from "@/features/studio/StudioCalendar";
-import { StudioShell } from "@/features/studio/Shell";
+import {todayInStudio} from "@/features/booking/calendar";
+import {StudioCalendar} from "@/features/studio/StudioCalendar";
+import {readWorkshop} from "@/features/studio/workshop";
+import {StudioShell} from "@/features/studio/Shell";
 export default async function CalendarPage() {
-  await requireDemo("calendar");
-  const today = todayInStudio();
-  return <StudioShell active="calendar"><p className="rs-cap">Производство</p><StudioCalendar today={today} fixture={calendarFixture(today)}/></StudioShell>;
+  const workshop=await readWorkshop();
+  return <StudioShell active="calendar"><p className="rs-cap">Производство</p><StudioCalendar today={todayInStudio(new Date(),workshop.timezone)} workshop={workshop}/></StudioShell>;
 }

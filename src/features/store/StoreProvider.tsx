@@ -1,102 +1,96 @@
 "use client";
 
-import { createContext, useContext, useSyncExternalStore, type ReactNode } from "react";
-import { findProduct } from "./products";
+import { createContext, useContext, useMemo, useSyncExternalStore, type ReactNode } from "react";
 
 export type PurchaseMode = "ready" | "made";
 export type Line = { slug: string; mode: PurchaseMode; window: string | null };
-export type Request = { id: string; date: string; lines: Line[]; method: string };
-export type CustomBrief = { id: string; idea: string; budget: string; deadline: string; reference: string };
-type State = { favorites: string[]; cart: Line[]; orders: Request[]; briefs: CustomBrief[] };
+type Order = { id: string; date: string; lines: Line[]; method: string };
+type CustomBrief = { id: string; idea: string; budget: string; deadline: string; reference: string };
+type State = { favorites: string[]; cart: Line[]; orders: Order[]; briefs: CustomBrief[] };
 const empty: State = { favorites: [], cart: [], orders: [], briefs: [] };
-const key = "roomlet.store.v1";
-let lastRaw: string | null = null;
-let cached = empty;
-let volatileOnly = false;
 const change = "roomlet-store-update";
-
-function isLine(line: unknown): line is Line {
-  if (!line || typeof line !== "object" || !("slug" in line) || typeof line.slug !== "string" || !("mode" in line) || !("window" in line)) return false;
-  const product = findProduct(line.slug);
-  return !!product && ((line.mode === "ready" && product.ready && line.window === null)
-    || (line.mode === "made" && product.made && typeof line.window === "string"));
-}
-
-function read(): State {
-  if (volatileOnly) return cached;
-  try {
-    const raw = window.localStorage.getItem(key);
-    if (raw === lastRaw) return cached;
-    lastRaw = raw;
-    cached = empty;
-    if (raw) {
-      const value = JSON.parse(raw);
-      cached = {
-        favorites: Array.isArray(value.favorites) ? value.favorites.filter((slug: unknown) => typeof slug === "string" && findProduct(slug)) : [],
-        cart: Array.isArray(value.cart) ? value.cart.filter(isLine) : [],
-        orders: Array.isArray(value.orders) ? value.orders.filter((o: Request | null) => o && typeof o.id === "string" && typeof o.date === "string" && Array.isArray(o.lines) && o.lines.every(isLine) && typeof o.method === "string") : [],
-        briefs: Array.isArray(value.briefs) ? value.briefs.filter((b: CustomBrief | null) => b && [b.id, b.idea, b.budget, b.deadline, b.reference].every(v => typeof v === "string")) : [],
-      };
-    }
-  } catch { /* A private browser or invalid snapshot can still use the local demo. */ }
-  return cached;
-}
-
-function update(next: State) {
-  cached = next;
-  lastRaw = JSON.stringify(next);
-  try { window.localStorage.setItem(key, lastRaw); }
-  catch { volatileOnly = true; }
-  window.dispatchEvent(new Event(change));
-}
-
-function subscribe(notify: () => void) {
-  window.addEventListener(change, notify);
-  window.addEventListener("storage", notify);
-  return () => {
-    window.removeEventListener(change, notify);
-    window.removeEventListener("storage", notify);
-  };
-}
 
 export function lineKey(line: Line) {
   return [line.slug, line.mode, line.window ?? ""].join(":");
 }
 
-const actions = {
-  toggleFavorite(slug: string) {
-    const state = read();
-    const favorites = state.favorites.includes(slug) ? state.favorites.filter(s => s !== slug) : [...state.favorites, slug];
-    update({ ...state, favorites });
-  },
-  addLine(line: Line) {
-    const state = read();
-    if (!isLine(line) || state.cart.some(item => lineKey(item) === lineKey(line))) return;
-    update({ ...state, cart: [...state.cart, line] });
-  },
-  removeLine(id: string) {
-    const state = read();
-    update({ ...state, cart: state.cart.filter(line => lineKey(line) !== id) });
-  },
-  submitRequest(method: string) {
-    const state = read();
-    if (!state.cart.length) return;
-    const order = { id: crypto.randomUUID(), date: new Date().toISOString(), lines: state.cart, method };
-    update({ ...state, orders: [order, ...state.orders], cart: [] });
-  },
-  addBrief(brief: Omit<CustomBrief, "id">) {
-    const state = read();
-    update({ ...state, briefs: [{ ...brief, id: crypto.randomUUID() }, ...state.briefs] });
-  },
-};
-
-const Context = createContext({ ...empty, ...actions });
-
-export function StoreProvider({ children }: { children: ReactNode }) {
-  const state = useSyncExternalStore(subscribe, read, () => empty);
-  return <Context.Provider value={{ ...state, ...actions }}>{children}</Context.Provider>;
+function isLine(item: unknown): item is Line {
+  if (!item || typeof item !== "object" || !("slug" in item) || typeof item.slug !== "string") return false;
+  if (!("mode" in item) || !("window" in item)) return false;
+  return item.mode === "ready" && item.window === null || item.mode === "made" && typeof item.window === "string";
+}
+function parse(raw: string | null, demo: boolean): State {
+  if (!raw) return empty;
+  try {
+    const value = JSON.parse(raw);
+    const favorites = Array.isArray(value?.favorites) ? value.favorites.filter((v: unknown) => typeof v === "string") : [];
+    if (!demo) return { ...empty, favorites };
+    return {
+      favorites, cart: Array.isArray(value.cart) ? value.cart.filter(isLine) : [],
+      orders: Array.isArray(value.orders) ? value.orders.filter((o: Order) => o && typeof o.id === "string" && typeof o.date === "string" && typeof o.method === "string" && Array.isArray(o.lines) && o.lines.every(isLine)) : [],
+      briefs: Array.isArray(value.briefs) ? value.briefs.filter((b: CustomBrief) => b && [b.id,b.idea,b.budget,b.deadline,b.reference].every(v => typeof v === "string")) : [],
+    };
+  } catch { return empty; }
 }
 
+function makeStorage(demo: boolean) {
+  const key = demo ? "roomlet.store.v1" : "roomlet.favorites.v1";
+  let previous: string | null = null;
+  let state = empty;
+  let volatile = false;
+  function get() {
+    if (!volatile) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (raw !== previous) { previous = raw; state = parse(raw, demo); }
+      } catch { volatile = true; }
+    }
+    return state;
+  }
+  function set(next: State) {
+    state = next;
+    previous = JSON.stringify(demo ? next : {favorites: next.favorites});
+    try { localStorage.setItem(key, previous); } catch { volatile = true; }
+    window.dispatchEvent(new Event(change));
+  }
+  return {
+    get,
+    toggleFavorite(slug: string) {
+      const s = get();
+      set({...s, favorites: s.favorites.includes(slug) ? s.favorites.filter(id => id !== slug) : [...s.favorites, slug]});
+    },
+    addLine(line: Line) {
+      const s = get();
+      if (demo && isLine(line) && !s.cart.some(x => lineKey(x) === lineKey(line))) set({...s, cart: [...s.cart, line]});
+    },
+    removeLine(id: string) {
+      const s = get();
+      if (demo) set({...s, cart: s.cart.filter(x => lineKey(x) !== id)});
+    },
+    submitRequest(method: string) {
+      const s = get();
+      if (!demo || !s.cart.length) return;
+      set({...s, cart: [], orders: [{id:crypto.randomUUID(), date:new Date().toISOString(), lines:s.cart, method}, ...s.orders]});
+    },
+    addBrief(brief: Omit<CustomBrief,"id">) {
+      const s = get();
+      if (demo) set({...s, briefs: [{...brief, id:crypto.randomUUID()}, ...s.briefs]});
+    },
+  };
+}
+function subscribe(fn: () => void) {
+  window.addEventListener(change, fn); window.addEventListener("storage", fn);
+  return () => { window.removeEventListener(change, fn); window.removeEventListener("storage", fn); };
+}
+type Store = State & ReturnType<typeof makeStorage> & {demo: boolean};
+const Context = createContext<Store | null>(null);
+export function StoreProvider({ children, demo }: { children: ReactNode; demo: boolean }) {
+  const storage = useMemo(() => makeStorage(demo), [demo]);
+  const state = useSyncExternalStore(subscribe, storage.get, () => empty);
+  return <Context.Provider value={{...state, ...storage, demo}}>{children}</Context.Provider>;
+}
 export function useStore() {
-  return useContext(Context);
+  const value = useContext(Context);
+  if (!value) throw new Error("StoreProvider is required");
+  return value;
 }

@@ -6,12 +6,8 @@ export const weekdays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
 const longDate = new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
 const shortDate = new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", timeZone: "UTC" });
 const monthName = new Intl.DateTimeFormat("ru-RU", { month: "long", year: "numeric", timeZone: "UTC" });
-const workshopDate = new Intl.DateTimeFormat("en-CA", {
-  year: "numeric", month: "2-digit", day: "2-digit", timeZone: "Europe/Moscow",
-});
-
-export function todayInStudio(now = new Date()): DayKey {
-  const parts = workshopDate.formatToParts(now);
+export function todayInStudio(now:Date, timeZone:string): DayKey {
+  const workshopDate = new Intl.DateTimeFormat("en-CA", {year:"numeric",month:"2-digit",day:"2-digit",timeZone});  const parts = workshopDate.formatToParts(now);
   const part = (type: string) => parts.find((item) => item.type === type)?.value;
   return `${part("year")}-${part("month")}-${part("day")}`;
 }
@@ -53,22 +49,10 @@ export function monthDates(key: DayKey): DayKey[] {
   return Array.from({ length: count }, (_, index) => addDays(start, index));
 }
 
-export type DayStatus = "free" | "busy" | "weekend" | "blocked";
-export function dateStatus(key: DayKey, blocks: readonly string[]): DayStatus {
-  if (blocks.includes(key)) return "blocked";
-  if (dayOfWeek(key) >= 5) return "weekend";
-  // Wednesdays are reserved in the fixture. Only the availability leaves Studio.
-  return dayOfWeek(key) === 2 ? "busy" : "free";
-}
-export function canStartWindow(key: string, today: DayKey, blocks: readonly string[]): boolean {
-  if (!validDate(key) || key <= today) return false;
-  const end = addDays(key, 1);
-  return end <= addDays(today, HORIZON_DAYS)
-    && [key, end].every((date) => dateStatus(date, blocks) === "free");
-}
-export function availableStarts(today: DayKey, blocks: readonly string[]): DayKey[] {
-  return Array.from({ length: HORIZON_DAYS }, (_, i) => addDays(today, i + 1))
-    .filter((key) => canStartWindow(key, today, blocks));
+export type PublicDay = {day:string;available_minutes:number};
+export function startsFromDays(days:readonly PublicDay[]): string[] {
+  const open = new Set(days.filter(d=>validDate(d.day) && d.available_minutes>0).map(d=>d.day));
+  return [...open].filter(d=>open.has(addDays(d,1))).sort();
 }
 export function windowLabel(start: DayKey): string {
   return `${shortDay(start)} — ${fullDay(addDays(start, 1))}`;

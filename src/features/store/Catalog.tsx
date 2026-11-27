@@ -3,14 +3,15 @@ import { useState } from "react";
 import { EmptyState, SearchInput, Select } from "@/components/ui";
 import { track } from "@/lib/analytics";
 import { ProductCard } from "./ProductCard";
-import { availabilityNames, filterProducts, products, type Availability } from "./products";
+import { availabilityNames, filterProducts, type Product, type Availability } from "./products";
 
 type FilterProps = {
+  products: readonly Product[]; demo: boolean;
   availability: Availability; onAvailability: (value: Availability) => void;
   category: string; onCategory: (value: string) => void;
   query: string; onQuery: (value: string) => void;
 };
-export function FilterBar({ availability, onAvailability, category, onCategory, query, onQuery }: FilterProps) {
+export function FilterBar({ products, demo, availability, onAvailability, category, onCategory, query, onQuery }: FilterProps) {
   return <div className="store-filters">
     <div className="store-filter-fields">
       <SearchInput label="Поиск" placeholder="Название или номер объекта" value={query} maxLength={100} onChange={e => onQuery(e.target.value)} />
@@ -19,23 +20,23 @@ export function FilterBar({ availability, onAvailability, category, onCategory, 
       </Select>
     </div>
     <div className="store-tabs" role="group" aria-label="Доступность">
-      {(Object.keys(availabilityNames) as Availability[]).map(value => <button key={value} type="button" aria-pressed={value === availability} onClick={() => onAvailability(value)}>{availabilityNames[value]}</button>)}
+      {(Object.keys(availabilityNames) as Availability[]).filter(v => demo || (v !== "archive" && v !== "upcoming")).map(value => <button key={value} type="button" aria-pressed={value === availability} onClick={() => onAvailability(value)}>{availabilityNames[value]}</button>)}
     </div>
   </div>;
 }
 
-export function Catalog({ initial = "all" }: { initial?: Availability }) {
-  const [availability, setAvailability] = useState<Availability>(initial);
+export function Catalog({ initial = "all", products, demo }: { initial?: Availability; products: Product[]; demo: boolean }) {
+  const [availability, setAvailability] = useState<Availability>(demo || !["archive","upcoming"].includes(initial) ? initial : "all");
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
-  const visible = filterProducts(query, category, availability);
+  const visible = filterProducts(products, query, category, availability);
   return <div className="store-page"><div className="store-page-head"><span className="store-kicker"><i />Roomlet Store</span><h1>Каталог</h1></div>
-    <FilterBar availability={availability} category={category} query={query}
+    {products.length > 0 && <FilterBar products={products} demo={demo} availability={availability} category={category} query={query}
       onAvailability={v => { setAvailability(v); track("filter_apply", { availability: v }); }}
       onCategory={v => { setCategory(v); track("filter_apply", { category: v }); }}
-      onQuery={v => { setQuery(v); if (v.trim()) track("search", { length: v.trim().length }); }} />
+      onQuery={v => { setQuery(v); if (v.trim()) track("search", { length: v.trim().length }); }} />}
     <p aria-live="polite" className="store-result-count">Найдено объектов: {visible.length}</p>
     {visible.length > 0 ? <div className="store-grid">{visible.map(product => <ProductCard key={product.slug} product={product} />)}</div>
-      : <EmptyState title="Объектов не найдено" description="Попробуйте другой запрос или сбросьте фильтры." action={<button className="store-light-button" onClick={() => { setQuery(""); setCategory(""); setAvailability("all"); }}>Сбросить фильтры</button>} />}
+      : !products.length ? <EmptyState title="В каталоге пока нет изделий" description="Опубликованные работы появятся здесь." /> : <EmptyState title="Объектов не найдено" description="Попробуйте другой запрос или сбросьте фильтры." action={<button className="store-light-button" onClick={() => { setQuery(""); setCategory(""); setAvailability("all"); }}>Сбросить фильтры</button>} />}
   </div>;
 }

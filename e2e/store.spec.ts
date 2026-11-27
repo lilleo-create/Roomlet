@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 
 test("поиск, фильтр доступности и избранное работают после переходов и перезагрузки", async ({ page }) => {
   await page.goto("/");
+  test.skip(!(await page.locator(".store-demo-label").count()), "Сценарий для демонстрационного каталога.");
   await page.getByRole("link", { name: "В каталог", exact: true }).click();
   await page.getByRole("button", { name: "Под заказ", exact: true }).click();
   await expect(page.locator(".store-card")).toHaveCount(2);
@@ -26,6 +27,7 @@ test("поиск, фильтр доступности и избранное ра
 test("на узком телефоне главный объект виден до прокрутки", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 568 });
   await page.goto("/");
+  test.skip(!(await page.locator(".store-demo-label").count()), "Сценарий для демонстрационного каталога.");
   const photo = page.locator(".store-hero-photo img");
   await expect(photo).toBeVisible();
   await expect.poll(() => photo.evaluate(img => (img as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
@@ -35,4 +37,13 @@ test("на узком телефоне главный объект виден д
   expect(Math.min(navTop - box.y, box.height)).toBeGreaterThan(box.height * 0.7);
   await page.getByRole("button", { name: "Следующий объект" }).click();
   await expect(page.locator(".store-hero-caption a")).toHaveText("Гостиная шейкеров");
+});
+
+test("в витрине нет публичной ссылки на Studio и демоизображений в рабочем режиме", async ({ page, request }) => {
+  await page.goto("/");
+  await expect(page.locator('a[href^="/studio"]')).toHaveCount(0);
+  if (!(await page.locator(".store-demo-label").count())) {
+    await expect(page.locator('img[src*="/objects/"]')).toHaveCount(0);
+    expect((await request.get("/objects/atelier.webp")).status()).toBe(404);
+  }
 });

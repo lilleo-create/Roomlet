@@ -92,7 +92,7 @@
 .store-gallery { min-width: 0; }
 .store-gallery-main { cursor: zoom-in !important; display: block; border: 0; width: 100%; aspect-ratio: 1.18; padding: 0; }
 .store-gallery-main.detail img { transform: scale(1.7); }
-.store-gallery-main span { position: absolute; display: grid; place-items: center; bottom: 12px; right: 12px; border-radius: 50%; width: 44px; height: 44px; background: var(--surface); color: var(--ink); }
+.store-gallery-main > span:not(.store-no-photo) { position: absolute; display: grid; place-items: center; bottom: 12px; right: 12px; border-radius: 50%; width: 44px; height: 44px; background: var(--surface); color: var(--ink); }
 .store-gallery-thumbs { margin-top: 10px; }
 .store-zoom { max-height: 65dvh; width: 100%; overflow: auto; }
 .store-zoom img { display: block; width: max(1200px,150%); height: auto; max-width: none; }
@@ -186,3 +186,10 @@
   .store-card-visual > a:hover img { transform: scale(1.025); }
   .store-primary-link, .store-heart { transition: background-color 160ms, color 160ms; }
 }
+
+.store-no-photo { display: grid; place-content: center; min-height: 100%; background: var(--surface); color: var(--muted); font-size: 14px; }
+.store-loading-card { min-height: 180px; }
+.store-product-info h1, .store-card h3, .store-specs dd, .store-description { overflow-wrap: anywhere; }
+.store-gallery-thumbs { flex-wrap: wrap; }
+
+.store-demo-label { font: var(--label); padding: 2px 8px; color: var(--ink); border: 1px solid var(--border); border-radius: 2px; }

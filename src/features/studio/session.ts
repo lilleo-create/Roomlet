@@ -1,37 +1,16 @@
 import "server-only";
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import { cache } from "react";
-import { cookies, headers } from "next/headers";
-import { redirect } from "next/navigation";
+import {cache} from "react";
+import {redirect} from "next/navigation";
+import {createRoomletClient} from "@/lib/supabase/server";
 
-const cookieName = "roomlet_demo_studio";
-const maxAge = 8 * 3600;
-const processState = globalThis as typeof globalThis & { roomletDemoSecret?: Buffer };
-const secret = processState.roomletDemoSecret ??= randomBytes(32);
-
-function signature(timestamp: string) {
-  return createHmac("sha256", secret).update(timestamp).digest("hex");
-}
-export async function beginDemo() {
-  const expiry = String(Math.floor(Date.now() / 1000) + maxAge);
-  const jar = await cookies();
-  const isHttps = (await headers()).get("x-forwarded-proto") === "https";
-  jar.set(cookieName, expiry + "." + signature(expiry), {httpOnly: true, secure: isHttps, sameSite:"lax", path:"/studio", maxAge});
-}
-export async function endDemo() {
-  (await cookies()).set(cookieName, "", {path:"/studio", maxAge:0, httpOnly:true, sameSite:"lax"});
-}
-const isDemo = cache(async () => {
-  const token = (await cookies()).get(cookieName)?.value;
-  if (!token || !/^\d{10}\.[a-f\d]{64}$/.test(token)) return false;
-  const [timestamp, mac] = token.split(".");
-  return Number(timestamp) > Date.now()/1000 && timingSafeEqual(Buffer.from(mac, "hex"), Buffer.from(signature(timestamp), "hex"));
+export type StudioSection = "today"|"calendar"|"orders"|"products"|"settings";
+export const requireStaff = cache(async () => {
+  const supabase = await createRoomletClient();
+  const {data:{user},error} = await supabase.auth.getUser();
+  if (error || !user) redirect("/studio/login");
+  const profile = await supabase.from("profiles").select("role").eq("id",user.id).maybeSingle();
+  if (profile.error) throw new Error("Не удалось проверить права мастерской.");
+  const role = profile.data?.role;
+  if (role !== "maker" && role !== "owner") redirect("/studio/login?error=access");
+  return {supabase,user,role:role as "owner"|"maker"};
 });
-const destinations = {today:"/studio", calendar:"/studio/calendar", orders:"/studio/orders", products:"/studio/products"} as const;
-export type StudioSection = keyof typeof destinations;
-export function studioDestination(value: unknown) {
-  return typeof value === "string" && Object.hasOwn(destinations, value) ? destinations[value as StudioSection] : destinations.today;
-}
-export async function requireDemo(section: StudioSection) {
-  if (!await isDemo()) redirect("/studio/login?next=" + section);
-}

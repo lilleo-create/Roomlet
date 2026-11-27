@@ -1,0 +1,9 @@
+.rs-settings-grid {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:40px;align-items:start}
+.rs-settings-form {display:grid;gap:16px;min-width:0;max-width:620px}
+.rs-settings-form label {display:grid;gap:4px;font-size:14px}
+.rs-settings-form :is(input,select) {width:100%;min-width:0;min-height:48px;padding:8px 12px;background:var(--surface);border:1px solid var(--muted);border-radius:8px;color:var(--ink)}
+.rs-settings-form fieldset {min-width:0;border:0;padding:0}
+.rs-settings-form legend {font-weight:600}
+.rs-hours-inputs {display:grid;grid-template-columns:repeat(auto-fit,minmax(64px,1fr));gap:8px}
+.rs-block-row {padding-block:8px;border-bottom:1px solid var(--border)}
+.rs-block-row button {min-height:44px;text-decoration:underline}

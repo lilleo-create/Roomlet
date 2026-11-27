@@ -1,57 +1,24 @@
 "use client";
+import {useState} from "react";
+import Link from "next/link";
+import {Calendar} from "../booking/CalendarGrid";
+import {addDays,dayOfWeek,fullDay,moveMonth} from "../booking/calendar";
+import type {Workshop} from "./workshop";
 
-import { useState } from "react";
-import { LockKeyhole, LockKeyholeOpen } from "lucide-react";
-import { Calendar } from "../booking/CalendarGrid";
-import { addDays, dateStatus, firstOfMonth, fullDay, monthDates, moveMonth, shortDay, weekDates, type DayStatus } from "../booking/calendar";
-import { useBlockedDates, toggleBlock } from "../booking/local-availability";
-import { Agenda } from "./Agenda";
-import type { calendarFixture } from "./data";
-
-const statuses: Record<DayStatus, string> = {free:"Есть свободное время",busy:"Занято",weekend:"Выходной",blocked:"Заблокировано"};
-export function StudioCalendar({today, fixture}: {today:string;fixture:ReturnType<typeof calendarFixture>}) {
-  const [mode,setMode] = useState<"month"|"week">("month");
-  const [selected,pick] = useState(today);
-  const [feedback,setFeedback] = useState("");
-  const blocks = useBlockedDates();
-  const status = dateStatus(selected, blocks);
-  const isBlocked = status === "blocked";
-  function targetDate(offset: number) {
-    const target = mode === "week" ? addDays(selected, 7 * offset) : moveMonth(selected, offset);
-    return target < fixture.first ? fixture.first : target > fixture.last ? fixture.last : target;
+export function StudioCalendar({today,workshop}:{today:string;workshop:Workshop}) {
+  const [day,setDay]=useState(today);
+  const [mode,setMode]=useState<"week"|"month">("month");
+  function describe(d:string) {
+    if (workshop.blocks.some(b=>d>=b.start_date&&d<=b.end_date)) return "Заблокировано";
+    const minutes=workshop.hours.find(h=>h.weekday===dayOfWeek(d)+1)?.minutes??0;
+    if (!minutes) return "Выходной";
+    return Math.max(0,minutes-workshop.bufferMinutes)+" мин свободно по графику";
   }
-  function canMove(offset: number) {
-    const grid = mode === "week" ? weekDates(selected) : monthDates(selected).filter((d) => firstOfMonth(d) === firstOfMonth(selected));
-    return offset < 0 ? grid[0] > fixture.first : grid.at(-1)! < fixture.last;
-  }
-  function select(day: string) {
-    pick(day);
-    setFeedback("");
-  }
-  function switchBlock() {
-    const saved = toggleBlock(selected);
-    setFeedback(saved ? (isBlocked ? "Блокировка снята." : "Дата закрыта для выбора покупателем.") : "Браузер не сохранил изменение. Проверьте доступ к локальному хранилищу.");
-  }
-  return <>
-    <div className="rs-page-title"><h1>Календарь</h1><div className="rs-switch" role="group" aria-label="Вид календаря">
-      <button type="button" aria-pressed={mode === "month"} onClick={() => setMode("month")}>Месяц</button>
-      <button type="button" aria-pressed={mode === "week"} onClick={() => setMode("week")}>Неделя</button>
-    </div></div>
-    <div className="rs-cal-layout">
-      <div className="rs-cal-main"><Calendar anchor={selected} selected={selected} today={today} mode={mode} onPick={select}
-        onMove={(step) => select(targetDate(step))} canMove={canMove}
-        describe={(day) => statuses[dateStatus(day, blocks)]} enabled={(day) => day >= fixture.first && day <= fixture.last}
-        mark={(day) => dateStatus(day, blocks)}/>
-        <ul className="rs-key">{Object.entries(statuses).map(([id, label]) => <li key={id}><i data-mark={id}/>{label}</li>)}</ul>
-        <p className="rs-range">Демо-период · {shortDay(fixture.first)} — {fullDay(fixture.last)}</p>
-      </div>
-      <section className="rs-selected"><p className="rs-cap">План на день</p><h2>{shortDay(selected)}</h2><span className="rs-daystatus">{statuses[status]}</span>
-        <Agenda tasks={fixture.schedule[selected] ?? []}/>
-        {selected >= today && <button className="rs-block" type="button" onClick={switchBlock}>
-          {isBlocked ? <LockKeyholeOpen size={17}/> : <LockKeyhole size={17}/>} {isBlocked ? "Снять блокировку" : "Закрыть дату"}</button>}
-        <p role="status" className="rs-feedback">{feedback}</p>
-      </section>
-    </div>
-    <p className="rs-calendar-note">Рабочие дни — с понедельника по пятницу. Среда отведена под текущую загрузку. Изменения доступности сохраняются в этом браузере.</p>
-  </>;
+  return <><div className="rs-page-title"><h1>Календарь</h1><div className="rs-switch" role="group" aria-label="Вид календаря">{(["month","week"] as const).map(m=><button key={m} aria-pressed={mode===m} onClick={()=>setMode(m)}>{m==="month"?"Месяц":"Неделя"}</button>)}</div></div>
+  <div className="rs-cal-layout"><section className="rs-cal-main"><Calendar anchor={day} selected={day} today={today} mode={mode} onPick={setDay}
+  onMove={step=>setDay(mode==="week"?addDays(day,step*7):moveMonth(day,step))} canMove={()=>true} describe={describe} enabled={()=>true}
+  mark={d=>describe(d)==="Заблокировано"?"blocked":describe(d)==="Выходной"?"weekend":"free"}/></section>
+  <section className="rs-selected"><p className="rs-cap">{workshop.timezone}</p><h2>{fullDay(day)}</h2><p>{describe(day)}</p>
+  {workshop.blocks.filter(b=>day>=b.start_date&&day<=b.end_date).map(b=><p key={b.id}>{b.reason}</p>)}
+  <Link className="rs-block" href={"/studio/settings?day="+day}>Управлять периодом</Link></section></div></>;
 }

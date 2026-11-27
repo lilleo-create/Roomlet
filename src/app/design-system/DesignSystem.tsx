@@ -8,7 +8,7 @@ import {
   Price, SearchInput, Select, Skeleton, StatusTag, Textarea, TextLink, Toast,
 } from "@/components/ui";
 import { OrderCard, OrderTimeline } from "@/components/patterns";
-import { StoreSamples } from "@/features/store/StoreSamples";
+import type { ReactNode } from "react";
 import { BuyerBooking } from "@/features/booking/BuyerBooking";
 
 const colors = [
@@ -27,7 +27,7 @@ const typeStyles = [
   ["Button", "button", "16 / 20 · 600"],
 ] as const;
 
-export function DesignSystem() {
+export function DesignSystem({ storeSamples }: { storeSamples: ReactNode }) {
   const [overlay, setOverlay] = useState<"dialog" | "sheet" | null>(null);
   const [toast, setToast] = useState("");
   const [favorite, setFavorite] = useState(false);
@@ -94,7 +94,7 @@ export function DesignSystem() {
               action={<Button variant="secondary" onClick={() => setRetried(true)}>Повторить</Button>} />}
         </div>
       </section>
-      <section className="ds-section" id="store"><h2>Витрина</h2><StoreSamples /></section>
+      <section className="ds-section" id="store"><h2>Витрина</h2>{storeSamples}</section>
       <section className="ds-section" id="booking"><h2>Производственное окно</h2><div className="ds-booking"><BuyerBooking onSelect={setSelected} /></div>
         {selected && <p role="status" className="ds-hint">Выбранный период · {selected}</p>}
       </section>

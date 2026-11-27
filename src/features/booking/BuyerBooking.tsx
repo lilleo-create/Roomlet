@@ -1,47 +1,49 @@
 "use client";
-
-import { useEffect, useState, useSyncExternalStore } from "react";
-import { track } from "@/lib/analytics";
-import { addDays, availableStarts, canStartWindow, firstOfMonth, HORIZON_DAYS, moveMonth, todayInStudio, windowLabel } from "./calendar";
-import { useBlockedDates } from "./local-availability";
-import { Calendar } from "./CalendarGrid";
-import { BookingWindow } from "./BookingWindow";
+import {useEffect,useState} from "react";
+import {track} from "@/lib/analytics";
+import {addDays,firstOfMonth,moveMonth,startsFromDays,windowLabel,type PublicDay} from "./calendar";
+import {Calendar} from "./CalendarGrid";
+import {BookingWindow} from "./BookingWindow";
 import "@/styles/studio.css";
 
-function onDateChange(fn: () => void) {
-  const timer = window.setInterval(fn, 60000);
-  window.addEventListener("focus", fn);
-  return () => { window.clearInterval(timer); window.removeEventListener("focus", fn); };
-}
-export function BuyerBooking({onSelect}: {onSelect:(value:string|null)=>void}) {
-  const today = useSyncExternalStore(onDateChange, todayInStudio, () => "");
-  const blocks = useBlockedDates();
-  const [chosen, setChosen] = useState<string | null>(null);
-  const [browseMonth, setBrowseMonth] = useState<string | null>(null);
-  const valid = !!today && !!chosen && canStartWindow(chosen, today, blocks);
-  useEffect(() => { track("booking_calendar_view"); }, []);
-  useEffect(() => {
-    onSelect(valid && chosen ? windowLabel(chosen) : null);
-    if (chosen && !valid) track("booking_unavailable");
-  }, [chosen, valid, onSelect]);
-  if (!today) return <div aria-busy="true" className="bk-window">Загрузка календаря…</div>;
-  const starts = availableStarts(today, blocks);
-  const anchor = browseMonth ?? firstOfMonth(starts[0] ?? today);
-  const last = firstOfMonth(addDays(today, HORIZON_DAYS));
-  const canMove = (offset: number) => {
-    const target = moveMonth(anchor, offset);
-    return target >= firstOfMonth(today) && target <= last;
-  };
-  function pick(day: string) {
-    if (!canStartWindow(day, today, blocks)) return;
-    setChosen(day);
-    track("booking_window_select", {start: day});
-  }
+export function BuyerBooking({onSelect}:{onSelect:(value:string|null)=>void}) {
+  const [days,setDays]=useState<PublicDay[]|null>(null);
+  const [failed,setFailed]=useState(false);
+  const [attempt,retry]=useState(0);
+  const [chosen,setChosen]=useState<string|null>(null);
+  const [month,setMonth]=useState<string|null>(null);
+  useEffect(()=>{
+    let controller:AbortController|undefined;
+    async function refresh() {
+      controller?.abort();
+      const own=new AbortController();
+      controller=own;
+      try {
+        const response=await fetch("/api/availability",{cache:"no-store",signal:own.signal});
+        if (!response.ok) throw new Error("unavailable");
+        const data=await response.json();
+        if (!own.signal.aborted) {setDays(data.days);setFailed(false);}
+      } catch {
+        if (!own.signal.aborted) {setDays([]);setFailed(true);}
+      }
+    }
+    void refresh();
+    window.addEventListener("focus",refresh);
+    return ()=>{controller?.abort();window.removeEventListener("focus",refresh);};
+  },[attempt]);
+  useEffect(()=>{track("booking_calendar_view");},[]);
+  const starts=startsFromDays(days??[]);
+  const valid=chosen!==null && starts.includes(chosen);
+  useEffect(()=>{onSelect(valid&&chosen ? windowLabel(chosen):null);},[valid,chosen,onSelect]);
+  if (failed) return <p role="status">Расписание недоступно. <button type="button" onClick={()=>retry(attempt+1)}>Повторить</button></p>;
+  if (!days) return <p aria-busy="true">Загрузка календаря…</p>;
+  if (!days.length||!starts.length) return <p role="status">Свободных окон пока нет.</p>;
+  const first=firstOfMonth(days[0].day),last=firstOfMonth(days[days.length-1].day);
+  const anchor=month&&month>=first&&month<=last?month:firstOfMonth(starts[0]);
   return <section className="bk-buyer" aria-label="Выбор производственного окна">
-    <Calendar anchor={anchor} selected={valid ? chosen : null} today={today} onPick={pick}
-      onMove={(step) => setBrowseMonth(moveMonth(anchor, step))} canMove={canMove}
-      enabled={(day) => canStartWindow(day, today, blocks)}
-      describe={(day) => canStartWindow(day, today, blocks) ? "Можно выбрать начало" : "Недоступно"}/>
-    {starts.length > 0 ? <BookingWindow start={valid ? chosen : null}/> : <p role="status">На ближайшие 70 дней свободных окон нет.</p>}
-  </section>;
+  <Calendar anchor={anchor} mode="month" selected={valid?chosen:null} today={addDays(days[0].day,-1)}
+  onPick={day=>{if(starts.includes(day)){setChosen(day);track("booking_window_select",{start:day});}}}
+  onMove={step=>setMonth(moveMonth(anchor,step))} canMove={step=>moveMonth(anchor,step)>=first&&moveMonth(anchor,step)<=last}
+  enabled={day=>starts.includes(day)} describe={day=>starts.includes(day)?"Можно выбрать начало":"Недоступно"}/>
+  <BookingWindow start={valid?chosen:null}/></section>;
 }

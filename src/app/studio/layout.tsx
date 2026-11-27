@@ -5,3 +5,4 @@ export const metadata: Metadata = {title: "Мастерская · Roomlet Studi
 export default function StudioLayout({children}: {children: React.ReactNode}) {
   return <div className="rs-studio">{children}</div>;
 }
+import "@/styles/workshop.css";

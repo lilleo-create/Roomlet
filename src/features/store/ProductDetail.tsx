@@ -3,9 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Check, ShoppingBag } from "lucide-react";
-import { Button, ObjectNumber, Price, StatusTag } from "@/components/ui";
+import { Button, ObjectNumber, StatusTag } from "@/components/ui";
 import { BuyerBooking } from "@/features/booking/BuyerBooking";
-import { isAvailableWindowLabel } from "@/features/booking/local-availability";
+import { ProductPrice } from "./ProductPrice";
 import { track } from "@/lib/analytics";
 import { ImageGallery } from "./ImageGallery";
 import { FavoriteButton } from "./ProductCard";
@@ -13,14 +13,14 @@ import { statusLabel, type Product } from "./products";
 import { lineKey, type PurchaseMode, useStore } from "./StoreProvider";
 
 export function ProductDetail({ product }: { product: Product }) {
-  const { addLine, cart } = useStore();
+  const { addLine, cart, demo, favorites, toggleFavorite } = useStore();
   const [mode, setMode] = useState<PurchaseMode>(product.ready ? "ready" : "made");
   const [slot, setSlot] = useState<string | null>(null);
   const [error, setError] = useState("");
   const line = { slug: product.slug, mode, window: mode === "made" ? slot : null };
   const inCart = cart.some(item => lineKey(item) === lineKey(line));
   function add() {
-    if (mode === "made" && (!slot || !isAvailableWindowLabel(slot))) {
+    if (mode === "made" && !slot) {
       setError("Это окно недоступно. Выберите другое время.");
       track("booking_unavailable", { product: product.slug });
       return;
@@ -37,21 +37,22 @@ export function ProductDetail({ product }: { product: Product }) {
         <div className="store-product-id"><ObjectNumber value={product.number} /><FavoriteButton product={product} /></div>
         <h1>{product.title}</h1><StatusTag tone={product.ready ? "success" : "neutral"}>{statusLabel(product)}</StatusTag>
         <p className="store-description">{product.description}</p>
-        <dl className="store-specs"><div><dt>Категория</dt><dd>{product.category}</dd></div><div><dt>Масштаб</dt><dd>{product.scale}</dd></div><div><dt>Материалы</dt><dd>{product.material}</dd></div></dl>
-        {product.status === "active" && <>
+        <dl className="store-specs"><div><dt>Категория</dt><dd>{product.category}</dd></div>{product.dimensions && <div><dt>Размеры</dt><dd>{product.dimensions}</dd></div>}{product.scale && <div><dt>Масштаб</dt><dd>{product.scale}</dd></div>}{product.material && <div><dt>Материалы</dt><dd>{product.material}</dd></div>}</dl>
+        {(product.ready || product.made) && <>
           <fieldset className="store-methods"><legend>Способ заказа</legend>
             {([["ready", "Готовый экземпляр", product.ready], ["made", "Изготовление под заказ", product.made]] as const).filter(([, , enabled]) => enabled).map(([v, label]) =>
               <label key={v}><input type="radio" name="purchase-mode" value={v} checked={mode === v} onChange={() => { setMode(v); setSlot(null); setError(""); }} />{label}</label>)}
           </fieldset>
+          {mode === "made" && product.requiresSketch && <p>Изготовление начинается после согласования эскиза.</p>}
           {mode === "made" && <div className="store-booking"><BuyerBooking onSelect={setSlot} /><p className="store-small">Срок изготовления мастер согласует после рассмотрения заявки.</p></div>}
         </>}
-        <p className="store-demo-note">Демонстрационная модель. Фото из музейной коллекции, параметры и цены приведены для примера.</p>
+        {demo && <p className="store-demo-note">Демонстрационная модель. Фото из музейной коллекции, параметры и цены приведены для примера.</p>}
       </div>
     </div>
-    {product.status === "active" && <aside className="store-purchase-bar" aria-label="Добавление в корзину">
+    {product.status === "active" && <aside className="store-purchase-bar" aria-label={demo ? "Добавление в корзину" : "Стоимость и избранное"}>
       {error && <p role="alert">{error}</p>}
-      <div><Price value={product.price} />
-      {inCart ? <Link className="store-primary-link" href="/cart"><Check size={17} />В корзине <ArrowRight size={16} /></Link>
+      <div><ProductPrice product={product} />
+      {!demo ? <Button variant="secondary" aria-pressed={favorites.includes(product.slug)} onClick={() => { toggleFavorite(product.slug); track(favorites.includes(product.slug) ? "favorite_remove" : "favorite_add", {product: product.slug}); }}>{favorites.includes(product.slug) ? "В избранном" : "В избранное"}</Button> : inCart ? <Link className="store-primary-link" href="/cart"><Check size={17} />В корзине <ArrowRight size={16} /></Link>
         : <Button disabled={mode === "made" && !slot} onClick={add}><ShoppingBag size={18} />В корзину</Button>}</div>
     </aside>}
   </div>;
