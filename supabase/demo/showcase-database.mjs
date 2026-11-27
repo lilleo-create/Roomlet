@@ -4,11 +4,11 @@ import EmbeddedPostgres from "embedded-postgres";
 
 // Postgres.js and PGlite expose different result containers. Keep one migration
 // and seed path for the standalone preview and the private hosted instance.
-function queries(sql) {
+function transactionQueries(sql) {
   return {
     exec: statement => sql.unsafe(statement).simple(),
     query: async (statement, values = []) => ({ rows: await sql.unsafe(statement, values) }),
-    transaction: run => sql.begin(transaction => run(queries(transaction))),
+    transaction: run => sql.begin(transaction => run(transactionQueries(transaction))),
   };
 }
 
@@ -28,5 +28,15 @@ export async function startShowcaseDatabase(directory) {
   await instance.start();
   // A private Unix socket is the only way into this cluster. The TOML and logs contain no password.
   Object.assign(process.env, {PGHOST:directory, PGPORT:String(port), PGUSER:"postgres", PGPASSWORD:password});
-  return { queries, stop: () => instance.stop() };
+  return {
+    queries(driver) {
+      // Supabase Lite 0.11 passes serialized JSON arguments to Postgres.js.
+      // Encoding them twice turns product objects and working-hour arrays into SQL JSON strings.
+      const serialize = value => typeof value === "string" ? value : JSON.stringify(value);
+      driver.options.serializers[114] = serialize;  // PostgreSQL json
+      driver.options.serializers[3802] = serialize; // PostgreSQL jsonb
+      return transactionQueries(driver);
+    },
+    stop: () => instance.stop(),
+  };
 }
