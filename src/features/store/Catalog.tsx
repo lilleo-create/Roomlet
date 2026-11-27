@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { EmptyState, SearchInput, Select } from "@/components/ui";
+import { PageHeading, EmptyState, SearchInput, Select } from "@/components/ui";
 import { track } from "@/lib/analytics";
 import { ProductCard } from "./ProductCard";
 import { availabilityNames, filterProducts, type Product, type Availability } from "./products";
@@ -30,13 +30,13 @@ export function Catalog({ initial = "all", products, demo }: { initial?: Availab
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
   const visible = filterProducts(products, query, category, availability);
-  return <div className="store-page"><div className="store-page-head"><h1>Каталог</h1></div>
+  return <div className="store-page"><PageHeading title="Каталог" />
     {products.length > 0 && <FilterBar products={products} demo={demo} availability={availability} category={category} query={query}
       onAvailability={v => { setAvailability(v); track("filter_apply", { availability: v }); }}
       onCategory={v => { setCategory(v); track("filter_apply", { category: v }); }}
       onQuery={v => { setQuery(v); if (v.trim()) track("search", { length: v.trim().length }); }} />}
     {products.length > 0 && <p aria-live="polite" className="store-result-count">Найдено объектов: {visible.length}</p>}
     {visible.length > 0 ? <div className="store-grid">{visible.map(product => <ProductCard key={product.slug} product={product} />)}</div>
-      : !products.length ? <EmptyState title="В каталоге пока нет изделий" description="Опубликованные работы появятся здесь." /> : <EmptyState title="Объектов не найдено" description="Попробуйте другой запрос или сбросьте фильтры." action={<button className="store-light-button" onClick={() => { setQuery(""); setCategory(""); setAvailability("all"); }}>Сбросить фильтры</button>} />}
+      : !products.length ? <EmptyState variant="catalog" title="Готовим новые миниатюры" description="Здесь появятся работы мастерской." /> : <EmptyState variant="search" title="Ничего не нашлось" description="Попробуйте другой запрос или сбросьте фильтры." action={<button className="store-light-button" onClick={() => { setQuery(""); setCategory(""); setAvailability("all"); }}>Сбросить фильтры</button>} />}
   </div>;
 }

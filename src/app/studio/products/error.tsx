@@ -1,6 +1,6 @@
 "use client";
-import { Button, ErrorState } from "@/components/ui";
-export default function InventoryError({reset}: {reset:()=>void}) {
+import { RetryPageButton, ErrorState } from "@/components/ui";
+export default function InventoryError() {
   return <main className="rs-content"><ErrorState title="Не удалось открыть изделия" description="Проверьте соединение и повторите загрузку."
-    action={<Button onClick={reset}>Повторить</Button>}/></main>;
+    action={<RetryPageButton />}/></main>;
 }

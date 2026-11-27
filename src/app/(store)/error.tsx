@@ -1,6 +1,6 @@
 "use client";
-import { Button, ErrorState } from "@/components/ui";
-export default function CatalogError({ reset }: { reset: () => void }) {
-  return <section className="store-page"><div className="store-page-head"><h1>Витрина Roomlet</h1></div><ErrorState title="Не удалось открыть витрину" description="Проверьте соединение и попробуйте ещё раз."
-    action={<Button onClick={reset}>Повторить</Button>} /></section>;
+import { PageHeading, RetryPageButton, ErrorState } from "@/components/ui";
+export default function CatalogError() {
+  return <section className="store-page"><PageHeading title="Витрина Roomlet" /><ErrorState title="Не удалось открыть витрину" description="Проверьте соединение и попробуйте ещё раз."
+    action={<RetryPageButton />} /></section>;
 }

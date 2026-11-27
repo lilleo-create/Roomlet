@@ -5,7 +5,7 @@ import { useState } from "react";
 import { ArrowLeft, ArrowUpRight, Heart } from "lucide-react";
 import {
   BottomSheet, Button, Dialog, EmptyState, ErrorState, IconButton, Input, ObjectNumber,
-  Price, SearchInput, Select, Skeleton, StatusTag, Textarea, TextLink, Toast,
+  PageHeading, Price, SearchInput, Select, Skeleton, StatusTag, Textarea, TextLink, Toast,
 } from "@/components/ui";
 import { OrderCard, OrderTimeline } from "@/components/patterns";
 import type { ReactNode } from "react";
@@ -42,7 +42,7 @@ export function DesignSystem({ storeSamples }: { storeSamples: ReactNode }) {
       <Link href="/" className="ds-back"><ArrowLeft size={16} aria-hidden /> В магазин</Link>
     </header>
     <main className="ds-main">
-      <div className="ds-masthead"><div><span className="ds-edition">Библиотека интерфейса · v1.0</span><h1>Дизайн-система</h1></div>
+      <div className="ds-masthead"><div><PageHeading title="Дизайн-система" description="Компоненты Roomlet Store и Studio" /></div>
         <nav aria-label="Содержание дизайн-системы" className="ds-index">
           {[["tokens", "Основа"], ["controls", "Управление"], ["states", "Состояния"], ["store", "Витрина"], ["booking", "Бронирование"], ["orders", "Заказы"]].map(([id, name]) =>
             <a key={id} href={`#${id}`}>{name}<ArrowUpRight size={13} aria-hidden /></a>)}
@@ -87,7 +87,7 @@ export function DesignSystem({ storeSamples }: { storeSamples: ReactNode }) {
       <section className="ds-section" id="states"><h2>Состояния</h2>
         <div className="ds-state-grid">
           <div className="ds-loading" aria-label="Идёт загрузка"><Skeleton /><Skeleton /><Skeleton /></div>
-          <EmptyState title="В избранном пока пусто" description="Сохраните изделие с помощью сердечка в каталоге." />
+          <EmptyState variant="favorites" title="Здесь будут ваши любимые миниатюры" description="Нажмите на сердце у изделия, чтобы сохранить его." action={<TextLink href="/catalog">В каталог</TextLink>} />
           {retried ? <div className="ui-state"><h3 role="status">Данные загружены</h3>
             <Button variant="quiet" onClick={() => setRetried(false)}>Показать ошибку снова</Button></div> :
             <ErrorState title="Не удалось загрузить" description="Проверьте соединение и попробуйте ещё раз."

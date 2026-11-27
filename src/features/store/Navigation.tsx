@@ -11,6 +11,10 @@ const sections = [
   { href: "/favorites", title: "Избранное", icon: Heart },
   { href: "/profile", title: "Профиль", icon: UserRound },
 ];
+function currentPage(path: string, href: string) {
+  if (path === href) return "page";
+  if (path.startsWith(href + "/") && href !== "/") return "location";
+}
 export function AppHeader() {
   const path = usePathname();
   const { cart, demo } = useStore();
@@ -18,7 +22,7 @@ export function AppHeader() {
     <div className="store-header-in">
       <Link href="/" className="store-logo" aria-label="Roomlet — главная">roomlet<span aria-hidden="true">.</span></Link>
       <nav className="store-desktop-nav" aria-label="Навигация магазина">
-        {sections.map(item => <Link key={item.href} href={item.href} aria-current={path === item.href ? "page" : undefined}>{item.title}</Link>)}
+        {sections.map(item => <Link key={item.href} href={item.href} aria-current={currentPage(path, item.href)}>{item.title}</Link>)}
       </nav>
       {demo && <div className="store-header-tools"><span className="store-demo-label">Демо</span>
         <Link href="/cart" className="store-bag" aria-label={`Корзина, позиций: ${cart.length}`} aria-current={path === "/cart" ? "page" : undefined}>
@@ -31,7 +35,7 @@ export function AppHeader() {
 export function BottomNav({ inline = false }: { inline?: boolean }) {
   const path = usePathname();
   return <nav className={`store-bottom-nav${inline ? " is-inline" : ""}`} aria-label="Разделы магазина">
-    {sections.map(({ href, title, icon: Icon }) => <Link key={href} href={href} aria-current={href === path ? "page" : undefined}>
+    {sections.map(({ href, title, icon: Icon }) => <Link key={href} href={href} aria-current={currentPage(path, href)}>
       <Icon size={20} strokeWidth={1.7} /><span>{title}</span></Link>)}
   </nav>;
 }

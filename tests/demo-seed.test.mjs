@@ -3,6 +3,7 @@ import test from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import { migratePreview } from "../supabase/demo/migrate.mjs";
 import { seedDemo, cleanDemo } from "../supabase/demo/seed.mjs";
+import { provisionPreviewAccounts } from "../supabase/demo/accounts.mjs";
 import { samples } from "../supabase/demo/products.mjs";
 
 test("Повторный seed сохраняет правки мастера, очистка затрагивает только демоколлекцию", async t => {
@@ -10,7 +11,7 @@ test("Повторный seed сохраняет правки мастера, о
   t.after(() => db.close());
   await db.exec(`
     create role anon; create role authenticated; create schema auth; create schema storage;
-    create table auth.users(id uuid primary key);
+    create table auth.users(id uuid primary key, email text, email_confirmed_at timestamptz);
     create function auth.uid() returns uuid language sql stable as
       $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
     create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
@@ -75,4 +76,31 @@ test("Повторный seed сохраняет правки мастера, о
   assert.deepEqual((await db.query("select name from storage.objects")).rows,[]);
   await seedDemo(db,storage);
   assert.equal((await catalog()).length,4);
+
+  await t.test("Демоаккаунты сохраняют отозванную роль и выбранное имя при перезапуске", async () => {
+    const accounts = ["owner", "maker", "customer"].map(role => ({
+      role, email: role + "@roomlet.local", password: "local-test",
+    }));
+    const auth = {
+      async signUp({ email }) {
+        const user = (await db.query(
+          "insert into auth.users values(gen_random_uuid(), $1, now()) returning id", [email],
+        )).rows[0];
+        return { data: { user }, error: null };
+      },
+    };
+    const profiles = async () => (await db.query(`
+      select role, display_name from public.profiles join auth.users using (id)
+      where email like '%@roomlet.local' order by email
+    `)).rows;
+    await provisionPreviewAccounts(db, auth, accounts);
+    assert.deepEqual(await profiles(), [
+      { role: "customer", display_name: "Покупатель Roomlet" },
+      { role: "maker", display_name: "Мастер Roomlet" },
+      { role: "owner", display_name: "Владелец Roomlet" },
+    ]);
+    await db.query("update public.profiles set role='customer', display_name='Имя мастера' where id=(select id from auth.users where email=$1)", [accounts[1].email]);
+    await provisionPreviewAccounts(db, auth, accounts);
+    assert.deepEqual((await profiles())[1], { role: "customer", display_name: "Имя мастера" });
+  });
 });

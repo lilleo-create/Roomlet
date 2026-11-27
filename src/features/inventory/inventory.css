@@ -2,7 +2,6 @@
 .inventory h1 { overflow-wrap: anywhere; text-wrap: pretty; }
 .inventory > .rs-demo { display: inline-block; margin-top: var(--space-3); }
 .inventory > form { max-width: 760px; }
-.inventory .rs-page-title > a { margin: 0; }
 .inventory-back, .inventory-pages a { display:inline-flex; align-items:center; min-height:44px; color:var(--primary-hover); }
 .inventory-fields { min-inline-size:0; padding:0; margin:0; border:0; }
 .inventory section { display:grid; gap:16px; padding:24px 0; border-bottom:1px solid var(--border); }
@@ -35,5 +34,4 @@
 .inventory-pages { display:flex; gap:20px; }
 @media(max-width:580px) {
   .inventory .inventory-pair { grid-template-columns:minmax(0,1fr); }
-  .inventory .rs-page-title { align-items:flex-start; flex-wrap:wrap; gap:12px; }
 }

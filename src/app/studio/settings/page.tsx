@@ -1,3 +1,4 @@
+import { PageHeading } from "@/components/ui";
 import {StudioShell} from "@/features/studio/Shell";
 import {readWorkshop} from "@/features/studio/workshop";
 import {fullDay, weekdays} from "@/features/booking/calendar";
@@ -7,7 +8,7 @@ export default async function Settings({searchParams}:{searchParams:Promise<{res
   const {result,day} = await searchParams;
   const zones=Array.from(new Set(["UTC",data.timezone,...Intl.supportedValuesOf("timeZone")]));
   const currencies=Array.from(new Set([data.currency,...Intl.supportedValuesOf("currency")]));
-  return <StudioShell active="settings"><p className="rs-cap">Мастерская</p><div className="rs-page-title"><h1>Настройки</h1></div>
+  return <StudioShell active="settings"><p className="rs-cap">Мастерская</p><PageHeading title="Настройки" />
     {result && <p role="status">{result==="saved"?"Изменения сохранены.": result==="invalid"?"Проверьте даты и введённые значения.":"Не удалось сохранить. Проверьте значения и попробуйте снова."}</p>}
     <div className="rs-settings-grid"><form action={saveSettings} className="rs-settings-form">
     <h2>Рабочий график</h2><label>Часовой пояс<select name="timezone" defaultValue={data.timezone}>{zones.map(v=><option key={v}>{v}</option>)}</select></label>

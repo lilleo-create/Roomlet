@@ -5,7 +5,7 @@ import { ProductPrice } from "./ProductPrice";
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { ArrowRight, Trash2 } from "lucide-react";
-import { Button, EmptyState, IconButton, Input, Select } from "@/components/ui";
+import { PageHeading, Button, EmptyState, IconButton, Input, Select } from "@/components/ui";
 import { startsFromDays, windowLabel } from "@/features/booking/calendar";
 import { track } from "@/lib/analytics";
 import { findProduct, type Product } from "./products";
@@ -53,9 +53,9 @@ export function CartPage({ products }: { products: Product[] }) {
     setConfirmed(true);
     setError("");
   }
-  if (!demo) return <section className="store-page"><h1>Корзина</h1><EmptyState title="Оформление заказов пока недоступно" action={<Link className="store-primary-link" href="/catalog">В каталог</Link>} /></section>;
-  return <section className="store-page store-narrow"><div className="store-page-head"><h1>Корзина</h1></div>
-    {!cart.length ? <EmptyState title={confirmed ? "Демо-заявка сохранена" : "Корзина пока пуста"} description={confirmed ? "Черновик доступен в профиле на этом устройстве. Средства не списывались." : "Выберите готовую миниатюру или изготовление под заказ."} action={<Link href={confirmed ? "/profile" : "/catalog"} className="store-primary-link">{confirmed ? "Открыть профиль" : "В каталог"} <ArrowRight size={17} /></Link>} />
+  if (!demo) return <section className="store-page"><PageHeading title="Корзина" /><EmptyState variant="cart" title="Корзина пока пуста" description="Приём заказов пока закрыт." action={<Link className="store-primary-link" href="/catalog">В каталог</Link>} /></section>;
+  return <section className="store-page store-narrow"><PageHeading title="Корзина" />
+    {!cart.length ? <EmptyState variant={confirmed ? "saved" : "cart"} title={confirmed ? "Демо-заявка сохранена" : "Корзина пока пуста"} description={confirmed ? "Черновик доступен в разделе «Мои заказы»." : "Выберите готовую миниатюру или изготовление под заказ."} action={<Link href={confirmed ? "/profile/orders" : "/catalog"} className="store-primary-link">{confirmed ? "Мои заказы" : "В каталог"} <ArrowRight size={17} /></Link>} />
       : <><div>{cart.map(line => {
         const product = findProduct(products, line.slug);
         if (!product) return <article key={lineKey(line)} className="store-cart-item"><p>Изделие больше недоступно</p><Button variant="quiet" onClick={() => removeLine(lineKey(line))}>Удалить</Button></article>;

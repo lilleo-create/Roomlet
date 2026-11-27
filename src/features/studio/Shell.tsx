@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { Store, CalendarDays, ClipboardList, LayoutDashboard, LogOut, Package, Settings } from "lucide-react";
+import { Store, CalendarDays, ClipboardList, LayoutDashboard, LogOut, Package, Settings, Users } from "lucide-react";
 import { leaveStudio } from "@/app/studio/actions";
-import type { StudioSection } from "./session";
+import { requireStaff, type StudioSection } from "./session";
 
 const menu = [
   {id:"today", label:"Сегодня", href:"/studio", Icon:LayoutDashboard},
@@ -10,13 +10,15 @@ const menu = [
   {id:"products", label:"Изделия", href:"/studio/products", Icon:Package},
   {id:"settings", label:"Настройки", href:"/studio/settings", Icon:Settings},
 ];
-export function StudioShell({active, children}: {active: StudioSection; children: React.ReactNode}) {
+export async function StudioShell({active, children}: {active: StudioSection; children: React.ReactNode}) {
+  const { role } = await requireStaff();
+  const sections = role === "owner" ? [...menu, {id:"team", label:"Команда", href:"/studio/team", Icon:Users}] : menu;
   return <div className="rs-shell">
     <header className="rs-header">
       <Link href="/studio" className="rs-brand"><span className="rs-logotype">roomlet<span>.</span></span><span className="rs-stamp">Studio</span></Link>
-      <div className="rs-header-actions"><Link href="/" aria-label="Магазин" title="Магазин"><span>Магазин</span><Store size={18} aria-hidden="true"/></Link><form action={leaveStudio}><button aria-label="Выйти из Studio" title="Выйти из Studio"><LogOut size={17}/></button></form></div>
+      <div className="rs-header-actions"><Link href="/" aria-label="Вернуться в магазин" title="Вернуться в магазин"><span>Вернуться в магазин</span><Store size={18} aria-hidden="true"/></Link><form action={leaveStudio}><button aria-label="Выйти из Studio" title="Выйти из Studio"><LogOut size={17}/></button></form></div>
     </header>
-    <nav className="rs-nav" aria-label="Мастерская">{menu.map(({id,label,href,Icon}) =>
+    <nav className={role === "owner" ? "rs-nav rs-nav-owner" : "rs-nav"} aria-label="Мастерская">{sections.map(({id,label,href,Icon}) =>
       <Link href={href} key={id} aria-current={active === id ? "page" : undefined}><Icon strokeWidth={1.7} size={19} aria-hidden/><span>{label}</span></Link>)}</nav>
     <main className="rs-content">{children}</main>
   </div>;

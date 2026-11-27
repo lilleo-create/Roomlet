@@ -74,7 +74,7 @@ try {
   const get = path => networkFetch(origin + path);
   const html = async path => (await get(path)).text();
 
-  assert.match(await html("/catalog"), /В каталоге пока нет изделий/);
+  assert.match(await html("/catalog"), /Готовим новые миниатюры/);
   assert.doesNotMatch(await html("/product/stolik"), /Столик Пион/);
   assert.equal((await get("/objects/atelier.webp")).status, 404);
 
@@ -97,7 +97,7 @@ try {
 
   published = true;
   product.is_demo = true;
-  assert.match(await html("/catalog"), /В каталоге пока нет изделий/);
+  assert.match(await html("/catalog"), /Готовим новые миниатюры/);
   assert.doesNotMatch(await html("/product/stolik"), /Столик Пион/);
   product.is_demo = false;
   product.media = [{storage_path:id + "/" + cover, alt_text:"Фасад", sort_order:0}];
@@ -123,13 +123,13 @@ try {
   assert.equal((await get("/catalog-media/" + id + "/" + cover)).status, 404);
 
   published = false;
-  assert.match(await html("/catalog"), /В каталоге пока нет изделий/);
+  assert.match(await html("/catalog"), /Готовим новые миниатюры/);
   assert.doesNotMatch(await html("/product/stolik"), /Столик Пион/);
   assert.equal((await get("/catalog-media/" + id + "/" + newCover)).status, 404);
 
   fail = true;
   const broken = await html("/catalog");
-  assert.doesNotMatch(broken, /Столик Пион|Библиотека-ротонда|В каталоге пока нет изделий/);
+  assert.doesNotMatch(broken, /Столик Пион|Библиотека-ротонда|Готовим новые миниатюры/);
   assert.ok(addresses.includes("/rest/v1/rpc/roomlet_catalog"));
   console.log("PASS: empty → publish → update price/photo → unpublish; private media, demo isolation and backend failure.");
 } catch (error) {

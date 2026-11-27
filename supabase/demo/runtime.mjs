@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { createServer } from "node:http";
 import { getRequestListener } from "@hono/node-server";
 import { cleanDemo, seedDemo } from "./seed.mjs";
+import { previewAccounts, provisionPreviewAccounts } from "./accounts.mjs";
 
 const apiHost = "127.0.0.1";
 const apiPort = 54331;
@@ -80,12 +81,7 @@ try {
   await migratePreview(db);
   await connection.clearSchemaCache();
   const localClient = app.getClient({apikey:keys.publishableKey,auth:{persistSession:false,autoRefreshToken:false}});
-  const found=(await db.query("select id from auth.users where email=$1", [keys.email])).rows[0];
-  if (!found) {
-    const {data,error}=await localClient.auth.signUp({email:keys.email,password:keys.password});
-    if(error || !data.user?.id) throw error || new Error("Could not create demo maker");
-    await db.query("update public.profiles set role='maker' where id=$1",[data.user.id]);
-  }
+  await provisionPreviewAccounts(db, localClient.auth, await previewAccounts(state, keys));
   const storage = app.getClient({apikey:keys.serviceKey,auth:{persistSession:false,autoRefreshToken:false}}).storage;
   const execute = async (action) => {
     if (action==="clean") await cleanDemo(db,storage); else await seedDemo(db,storage);

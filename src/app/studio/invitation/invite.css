@@ -1,0 +1,4 @@
+.rs-invitation { max-width: 560px; margin-inline: auto; padding: 24px 20px; }
+.rs-invitation > .rs-logotype { display: inline-block; margin-bottom: 40px; }
+.rs-invitation form { display: grid; gap: 20px; }
+.rs-invitation form > button { justify-self: start; }

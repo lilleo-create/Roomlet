@@ -1,0 +1,101 @@
+.profile-page {
+  max-width: 776px;
+  margin-inline: auto;
+  padding-block: clamp(24px, 3.3vw, 48px) var(--space-6);
+  --page-title-size: clamp(26px, 2.4vw, 30px);
+  --page-title-weight: 600;
+}
+
+.profile-settings-shortcut {
+  display: inline-grid;
+  place-items: center;
+  min-width: var(--touch-target);
+  min-height: var(--touch-target);
+  border-radius: var(--radius-control);
+}
+.profile-settings-shortcut:hover { background: var(--surface); }
+
+.profile-identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-block-end: var(--space-4);
+}
+
+.profile-avatar {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  color: var(--surface);
+  background: var(--ink);
+}
+
+.profile-identity-copy { min-width: 0; }
+.profile-name, .profile-role { margin: 0; overflow-wrap: anywhere; }
+.profile-name { font: 600 17px/1.35 var(--font-display); }
+.profile-role { margin-top: 3px; font: var(--small); color: var(--muted); }
+.roomlet-store .profile-signin {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  padding: 0 var(--space-4);
+  min-height: var(--touch-target);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  font-weight: 600;
+}
+.profile-signin:hover { border-color: var(--ink); }
+
+.roomlet-store .profile-studio {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  background: var(--primary);
+  color: var(--on-primary);
+  border-radius: var(--radius-control);
+}
+.profile-studio-icons { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.profile-studio-title { font: 700 22px/1.25 var(--font-display); letter-spacing: -.023em; }
+.profile-studio-subtitle { font: 500 15px/1.45 var(--font-body); }
+.profile-studio-sections { font: var(--small); }
+.profile-studio:hover { background: var(--primary-hover); }
+.profile-studio:active { background: var(--primary-pressed); }
+
+.profile-menu ul { margin: 0; padding: 0; list-style: none; }
+.profile-menu li { border-bottom: 1px solid var(--border); }
+.profile-menu-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: clamp(66px, 8.6vw, 88px);
+  padding-block: var(--space-4);
+  font: var(--body);
+}
+.profile-menu-row > svg { flex: none; }
+.profile-menu-label { min-width: 0; overflow-wrap: anywhere; }
+.profile-chevron, .profile-unavailable { color: var(--muted); margin-left: auto; }
+.profile-unavailable { flex: none; font: var(--caption); }
+.profile-menu-row[aria-disabled] { color: var(--muted); }
+.roomlet-store a.profile-menu-row:hover { color: var(--primary-hover); }
+.profile-signout-form { margin-top: var(--space-5); }
+.profile-signout {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--touch-target);
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font: var(--small);
+  color: var(--muted);
+}
+.profile-signout:hover { color: var(--ink); }
+.profile-account-details { margin: 0; }
+.profile-account-details > div { display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 12px; padding-block: 12px; border-bottom: 1px solid var(--border); }
+.profile-account-details dt { color: var(--muted); }
+.profile-account-details dd { margin: 0; overflow-wrap: anywhere; }
+.profile-loading-line { height: var(--touch-target); display: block; margin-bottom: 12px; }

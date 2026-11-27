@@ -35,7 +35,11 @@
   --space-12: 48px;
   --space-16: 64px;
   --page-gutter: var(--space-5);
-  --section-gap: var(--space-10);
+  --section-gap: clamp(32px, 3vw, 40px);
+  --heading-content-gap: clamp(20px, 2vw, 24px);
+  --heading-description-gap: clamp(12px, 1.2vw, 16px);
+  --page-title-size: clamp(28px, 3.25vw, 48px);
+  --page-title-weight: 700;
   --card-gap: clamp(12px, 1.65vw, 24px);
   --product-photo-ratio: 4 / 3;
   --content-width: 1512px;

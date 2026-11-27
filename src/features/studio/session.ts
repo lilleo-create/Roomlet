@@ -3,7 +3,7 @@ import { cache } from "react";
 import { notFound, redirect } from "next/navigation";
 import { createRoomletClient } from "@/lib/supabase/server";
 
-export type StudioSection = "today" | "calendar" | "orders" | "products" | "settings";
+export type StudioSection = "today" | "calendar" | "orders" | "products" | "settings" | "team";
 
 export const requireStaff = cache(async (denied: "login" | "not-found" = "login") => {
   const supabase = await createRoomletClient();
@@ -20,4 +20,10 @@ export const requireStaff = cache(async (denied: "login" | "not-found" = "login"
     redirect("/studio/login?error=access");
   }
   return { supabase, user, role: role as "owner" | "maker" };
+});
+
+export const requireOwner = cache(async () => {
+  const session = await requireStaff("not-found");
+  if (session.role !== "owner") notFound();
+  return session;
 });

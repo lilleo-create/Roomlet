@@ -1,0 +1,13 @@
+.rs-team { display: grid; gap: var(--space-8, 36px); max-width: 740px; }
+.rs-team h2 { margin: 0 0 var(--space-5, 20px); font-size: clamp(20px, 3vw, 26px); line-height: 1.2; }
+.rs-team section > p, .rs-team-members span { color: var(--muted); }
+.rs-team-members { margin: 0; padding: 0; list-style: none; }
+.rs-team-members li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 18px; min-height: 64px; padding: 14px 0; border-bottom: 1px solid var(--border); }
+.rs-team-members li > div { display: grid; gap: 4px; min-width: 0; overflow-wrap: anywhere; }
+.rs-team-members span { font-size: 14px; line-height: 1.4; }
+.rs-team-form { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: end; gap: 12px; }
+.rs-team-message { margin: 0 0 24px; border-inline-start: 3px solid var(--primary); padding-inline-start: 12px; }
+@media (max-width: 600px) {
+  .rs-team-form { grid-template-columns: minmax(0,1fr); }
+  .rs-team-form > button { justify-self: start; }
+}

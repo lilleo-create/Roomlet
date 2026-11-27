@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { EmptyState, ErrorState, StatusTag } from "@/components/ui";
+import { EmptyState, ErrorState, PageHeading, RetryPageButton, StatusTag } from "@/components/ui";
 import { requireStaff } from "@/features/studio/session";
 import { StudioShell } from "@/features/studio/Shell";
 import { statusLabels, type ProductStatus } from "@/features/inventory/model";
@@ -15,10 +15,10 @@ export default async function StudioProductsPage({searchParams}: {searchParams:P
     .order("updated_at",{ascending:false}).order("id").range(offset,offset+pageSize);
   const rows=data?.slice(0,pageSize) || [];
   return <StudioShell active="products"><div className="inventory">
-    <div className="rs-page-title"><h1>Изделия</h1><Link className="rs-primary" href="/studio/products/new">Создать изделие</Link></div>
+    <PageHeading title="Изделия" action={<Link className="rs-primary" href="/studio/products/new">Создать изделие</Link>} />
     {notice==="deleted" && <p className="inventory-note" role="status">Изделие удалено.</p>}
     {notice==="cleanup" && <p className="inventory-note" role="status">Изделие удалено. Часть снятых фотографий требует очистки хранилища.</p>}
-    {error ? <ErrorState title="Не удалось загрузить изделия" description="Проверьте соединение и права доступа." action={<Link href="/studio/products">Повторить</Link>}/> :
+    {error ? <ErrorState title="Не удалось загрузить изделия" description="Проверьте соединение и права доступа." action={<RetryPageButton />}/> :
       rows.length ? <div className="inventory-list">{rows.map(row=><Link key={row.id} href={"/studio/products/"+row.id}>
         <strong>{row.title}</strong><StatusTag tone={row.status==="published"?"success":"neutral"}>{statusLabels[row.status as ProductStatus]}</StatusTag><ArrowRight size={18}/>
       </Link>)}</div> : <EmptyState title={page===1?"Изделий пока нет":"На этой странице изделий нет"} description={page===1?"Создайте карточку и сохраните её как черновик.":undefined}/>}

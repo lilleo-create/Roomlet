@@ -50,7 +50,7 @@ test("поиск, фильтр доступности и избранное ра
   await expect(zoom).toHaveCount(0);
   await page.getByRole("button", { name: "Удалить из избранного: Токийское кафе", exact: true }).click();
   await page.getByRole("link", { name: "Избранное", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Соберите свою подборку" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Здесь будут ваши любимые миниатюры" })).toBeVisible();
 });
 
 test("на узком телефоне главный объект виден до прокрутки и карусель переключается", async ({ page }) => {

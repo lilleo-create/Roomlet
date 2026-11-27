@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {readFile} from "node:fs/promises";
+import {readFile, readdir} from "node:fs/promises";
 import {randomUUID} from "node:crypto";
 import {PGlite} from "@electric-sql/pglite";
 
@@ -11,7 +11,7 @@ test("Phase 02 · PostgreSQL, RLS и Storage", async t => {
   t.after(() => db.close());
   await db.exec(`
     create role anon; create role authenticated;
-    create schema auth; create table auth.users(id uuid primary key);
+    create schema auth; create table auth.users(id uuid primary key, email text, email_confirmed_at timestamptz);
     create function auth.uid() returns uuid language sql stable as
       $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
     create schema storage;
@@ -22,8 +22,9 @@ test("Phase 02 · PostgreSQL, RLS и Storage", async t => {
     grant usage on schema auth,storage to anon,authenticated;
     grant select,insert,update,delete on storage.objects to anon,authenticated;
   `);
-  const migration = await readFile("supabase/migrations/20261127131031_roomlet_backend_studio.sql","utf8");
-  await db.exec(migration);
+  for (const file of (await readdir("supabase/migrations")).filter(name => name.endsWith(".sql")).sort()) {
+    await db.exec(await readFile("supabase/migrations/" + file, "utf8"));
+  }
   const maker=randomUUID(), customer=randomUUID(), id=randomUUID(), photo=id+"/"+randomUUID()+".webp";
   await db.query("insert into auth.users(id) values ($1),($2)",[maker,customer]);
   await db.query("update public.profiles set role='maker' where id=$1",[maker]);
@@ -88,5 +89,44 @@ test("Phase 02 · PostgreSQL, RLS и Storage", async t => {
     await asUser();
     assert.deepEqual((await db.query("select day::text,available_minutes from roomlet_availability() limit 1")).rows,[{day:days[0].day,available_minutes:0}]);
     await assert.rejects(db.query("select * from blocked_periods"),{code:"42501"});
+  });
+
+  await t.test("владелец управляет мастерами, роли проверяются заново для того же пользователя", async () => {
+    await db.exec("reset role");
+    const owner = randomUUID();
+    await db.query("insert into auth.users(id,email,email_confirmed_at) values($1,'owner@example.test',now())", [owner]);
+    await db.query("update profiles set role='owner' where id=$1", [owner]);
+    await db.query("update auth.users set email='customer@example.test' where id=$1", [customer]);
+    await db.query("update auth.users set email='maker@example.test',email_confirmed_at=now() where id=$1", [maker]);
+    for (const actor of [undefined, customer, maker]) {
+      await asUser(actor);
+      await assert.rejects(db.query("select * from roomlet_team_members()"), { code: "42501" });
+      await assert.rejects(db.query("select roomlet_grant_maker('customer@example.test')"), { code: "42501" });
+      await assert.rejects(db.query("select roomlet_revoke_maker($1)", [maker]), { code: "42501" });
+    }
+    await asUser(customer);
+    await db.query("update profiles set display_name='Анна' where id=$1", [customer]);
+    assert.equal((await db.query("update profiles set display_name='Другой' where id=$1 returning id", [owner])).rows.length, 0);
+    await assert.rejects(db.query("update profiles set role='owner' where id=$1", [customer]), { code: "42501" });
+
+    await asUser(owner);
+    assert.equal((await db.query("select * from roomlet_team_members()")).rows.length, 2);
+    await assert.rejects(db.query("select roomlet_grant_maker('customer@example.test')"), { code: "P0002" });
+    await assert.rejects(db.query("select roomlet_revoke_maker($1)", [owner]), { code: "42501" });
+    await assert.rejects(db.query("select roomlet_grant_maker('owner@example.test')"), { code: "42501" });
+    await db.exec("reset role");
+    await assert.rejects(db.query("update profiles set role='maker' where id=$1", [owner]), { code: "23514" });
+    await assert.rejects(db.query("delete from auth.users where id=$1", [owner]), { code: "23514" });
+    await db.query("update auth.users set email_confirmed_at=now() where id=$1", [customer]);
+    await asUser(owner);
+    await db.query("select roomlet_grant_maker(' CUSTOMER@example.test ')");
+    assert.equal((await db.query("select * from roomlet_team_members()")).rows.length, 3);
+    await asUser(customer);
+    assert.equal((await db.query("select * from workshop_settings")).rows.length, 1);
+    await asUser(owner);
+    await db.query("select roomlet_revoke_maker($1)", [customer]);
+    await asUser(customer);
+    assert.equal((await db.query("select * from workshop_settings")).rows.length, 0);
+    await assert.rejects(save(), { code: "42501" });
   });
 });

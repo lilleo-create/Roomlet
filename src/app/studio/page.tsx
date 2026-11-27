@@ -1,3 +1,4 @@
+import { PageHeading } from "@/components/ui";
 import Link from "next/link";
 import {ArrowRight,CalendarDays,ArrowUpRight} from "lucide-react";
 import {shortDay,todayInStudio} from "@/features/booking/calendar";
@@ -12,7 +13,7 @@ export default async function TodayPage() {
   const groups=[["draft","Черновики"],["published","Опубликованы"],["archived","Архив"]] as const;
   const counts=await Promise.all(groups.map(([status])=>supabase.from("products").select("id",{count:"exact",head:true}).eq("status",status)));
   if(counts.some(r=>r.error)) throw new Error("Не удалось загрузить ассортимент.");
-  return <StudioShell active="today"><p className="rs-cap">Мастерская</p><div className="rs-page-title"><h1>Сегодня</h1></div>
+  return <StudioShell active="today"><p className="rs-cap">Мастерская</p><PageHeading title="Сегодня" />
   <div className="rs-today-grid"><section className="rs-date-poster"><p className="rs-cap">{workshop.timezone}</p><span className="rs-poster-day">{Number(today.slice(-2))}</span><div><strong>{shortDay(today).split(" ").slice(1).join(" ")}</strong></div><Link href="/studio/calendar"><CalendarDays size={18}/> Календарь <ArrowUpRight size={18}/></Link></section>
   <section className="rs-plan"><p className="rs-cap">Витрина</p><h2>Ассортимент</h2><ul className="rs-inbox">{groups.map(([status,label],i)=><li key={status}><Link href="/studio/products">{label}<strong>{counts[i].count??0}</strong><ArrowRight size={16}/></Link></li>)}</ul><Link className="rs-block" href="/studio/settings">Настройки мастерской</Link></section></div></StudioShell>;
 }

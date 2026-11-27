@@ -5,8 +5,6 @@
 .ds-back, .ds-index a, .ds-sheet-links a { display: inline-flex; min-height: 44px; align-items: center; gap: 8px; font: var(--small); font-weight: 600; text-decoration: none; }
 .ds-back:hover, .ds-index a:hover, .ds-sheet-links a:hover { color: var(--primary); text-decoration: underline; text-underline-offset: 3px; }
 .ds-masthead { padding: clamp(32px, 6vw, 80px) 0 var(--space-8); }
-.ds-edition { display: block; color: var(--muted); font: var(--label); letter-spacing: .08em; text-transform: uppercase; }
-.ds-masthead h1 { margin: var(--space-3) 0 var(--space-6); font: var(--display); font-size: clamp(36px, 6vw, 80px); line-height: 1.06; letter-spacing: -.065em; overflow-wrap: anywhere; }
 .ds-index, .ds-actions { display: flex; gap: 8px 16px; flex-wrap: wrap; align-items: center; }
 .ds-index a { padding: 0 4px 0 0; }
 .ds-section { padding: var(--section-gap) 0; border-top: 1px solid var(--ink); scroll-margin-top: 16px; }

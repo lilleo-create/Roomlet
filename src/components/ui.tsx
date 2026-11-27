@@ -4,7 +4,7 @@ import Link from "next/link";
 import {
   useEffect, useId, useRef, type ComponentProps, type ReactNode,
 } from "react";
-import { AlertCircle, Check, Search, X } from "lucide-react";
+import { AlertCircle, Box, CalendarDays, Check, CircleCheck, Heart, Package, PencilRuler, Search, ShoppingBag, X } from "lucide-react";
 
 function classes(...names: (string | undefined)[]) {
   return names.filter(Boolean).join(" ");
@@ -16,6 +16,10 @@ type ButtonProps = ComponentProps<"button"> & {
 
 export function Button({ variant = "primary", type = "button", className, ...props }: ButtonProps) {
   return <button type={type} className={classes("ui-btn", `ui-btn--${variant}`, className)} {...props} />;
+}
+
+export function RetryPageButton() {
+  return <Button onClick={() => window.location.reload()}>Повторить</Button>;
 }
 
 export function IconButton({ label, className, type = "button", ...props }: ComponentProps<"button"> & { label: string }) {
@@ -96,8 +100,25 @@ export function Skeleton({ className, ...props }: ComponentProps<"div">) {
 }
 
 type StateProps = { title: string; description?: string; action?: ReactNode };
-export function EmptyState({ title, description, action }: StateProps) {
-  return <div className="ui-state"><h3>{title}</h3>{description && <p>{description}</p>}{action && <div className="ui-state-action">{action}</div>}</div>;
+export function PageHeading({ title, description, action, className }: StateProps & { className?: string }) {
+  return <div className={classes("ui-page-heading", className)}>
+    <div><h1>{title}</h1>{description && <p>{description}</p>}</div>
+    {action}
+  </div>;
+}
+
+const stateIcons = {
+  catalog: Box, favorites: Heart, cart: ShoppingBag, search: Search,
+  calendar: CalendarDays, orders: Package, project: PencilRuler, saved: CircleCheck,
+};
+export function EmptyState({ title, description, action, variant = "catalog", heading: Heading = "h2" }: StateProps & { variant?: keyof typeof stateIcons; heading?: "h1" | "h2" | "h3" }) {
+  const Icon = stateIcons[variant];
+  return <div className="ui-empty">
+    <Icon aria-hidden="true" className="ui-empty-icon" size={72} strokeWidth={0.85} />
+    <Heading className="ui-empty-title">{title}</Heading>
+    {description && <p>{description}</p>}
+    {action && <div className="ui-state-action">{action}</div>}
+  </div>;
 }
 export function ErrorState({ title, description, action }: StateProps) {
   return <div className="ui-state ui-state-error" role="alert"><AlertCircle size={20} aria-hidden />
