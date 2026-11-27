@@ -1,7 +1,7 @@
 export type AuthMode = "login" | "register" | "forgot" | "recover" | "confirm";
 export type AuthQuery = { next?: string; code?: string; sb_flow_id?: string; local_proof?: string; error_code?: string; success?: string; error?: string };
 
-const storePages = new Set(["/", "/profile", "/profile/orders", "/profile/settings", "/profile/notifications", "/catalog", "/cart", "/favorites", "/custom"]);
+const storePages = new Set(["/", "/mini/link", "/profile", "/profile/orders", "/profile/settings", "/profile/notifications", "/catalog", "/cart", "/favorites", "/custom"]);
 export function authDestination(value: unknown): string {
   if (typeof value !== "string" || value.length > 512 || !value.startsWith("/") || /[\\\s#%]/.test(value)) return "/profile";
   const [path, query] = value.split("?");

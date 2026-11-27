@@ -25,6 +25,8 @@ export const readAccount = cache(async () => {
   if (profileError || !data || !Object.hasOwn(roleLabels, data.role)) {
     throw new Error("Не удалось получить данные профиля.");
   }
-  const name: string = data.display_name.trim();
-  return { id: user.id, email: user.email ?? "", name, role: data.role as AccountRole };
+  const telegram = user.identities?.find(identity => identity.provider === "custom:roomlet-telegram");
+  const telegramName = telegram?.identity_data?.name;
+  const name = data.display_name.trim() || (typeof telegramName === "string" ? telegramName : "");
+  return { telegramLinked: Boolean(telegram), id: user.id, email: user.email ?? "", name, role: data.role as AccountRole };
 });

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { Button, Input, PageHeading } from "@/components/ui";
 import { readAccount, roleLabels } from "@/features/profile/session";
+import { miniEnabled } from "@/lib/telegram/config.server";
 import { updateDisplayName } from "../actions";
 
 export default async function ProfileSettings({ searchParams }: { searchParams: Promise<{ result?: string }> }) {
@@ -16,7 +17,8 @@ export default async function ProfileSettings({ searchParams }: { searchParams: 
       <Input label="Имя в профиле" name="display_name" defaultValue={account.name} maxLength={100}
         hint="Если оставить поле пустым, в профиле будет виден адрес почты." autoComplete="name" />
       <dl className="profile-account-details"><div><dt>Почта</dt><dd>{account.email || "Не указана"}</dd></div>
-        <div><dt>Telegram</dt><dd>Привязка пока недоступна</dd></div>
+        <div><dt>Telegram</dt><dd>{account.telegramLinked ? "Подключён" : miniEnabled()
+          ? <a href="https://t.me/roomlet_shop_bot?startapp=link">Привязать Telegram</a> : "Привязка пока недоступна"}</dd></div>
         <div><dt>Роль</dt><dd>{roleLabels[account.role]}</dd></div></dl>
       {result === "saved" && <p role="status">Настройки сохранены.</p>}
       {result === "invalid" && <p role="alert">В имени должно быть не больше 100 символов.</p>}

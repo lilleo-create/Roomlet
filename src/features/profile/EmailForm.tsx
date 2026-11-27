@@ -25,8 +25,8 @@ function hasMailError() {
   return params.has("error") || params.has("error_code");
 }
 
-export function EmailForm({ mode, next, code, localProof, flowId, recovered, demo, invalidLink }: {
-  mode: AuthMode; next: string; code?: string; localProof?: string; flowId?: string; recovered: boolean; demo: boolean; invalidLink: boolean;
+export function EmailForm({ mode, next, code, localProof, flowId, recovered, demo, invalidLink, miniAvailable }: {
+  mode: AuthMode; next: string; code?: string; localProof?: string; flowId?: string; recovered: boolean; demo: boolean; invalidLink: boolean; miniAvailable: boolean;
 }) {
   const [state, action, pending] = useActionState(submitEmail, initial);
   const expiredFragment = useSyncExternalStore(subscribeHash, hasMailError, () => false);
@@ -66,9 +66,11 @@ export function EmailForm({ mode, next, code, localProof, flowId, recovered, dem
         <Link className="account-text-link" href={authHref("login", next)}>Вернуться ко входу</Link>
       </div> : <div className="account-body">
         {(mode === "login" || mode === "register") && <div className="account-method">
+          {miniAvailable ? <a className="account-telegram" href="https://t.me/roomlet_shop_bot?startapp">
+            <Send size={20} aria-hidden /><span>Открыть магазин в Telegram</span></a> : <>
           <button className="account-telegram" type="button" disabled aria-describedby="telegram-availability">
             <Send size={20} aria-hidden /><span>{mode === "login" ? "Войти через Telegram" : "Продолжить с Telegram"}</span></button>
-          <p id="telegram-availability">Вход через Telegram пока недоступен.</p>
+          <p id="telegram-availability">Вход через Telegram пока недоступен.</p></>}
           <div className="account-divider"><span>По электронной почте</span></div>
         </div>}
         {recovered && <p className="account-notice" role="status">Пароль изменён. Войдите с новым паролем.</p>}

@@ -10,7 +10,7 @@ test("Phase 02 · PostgreSQL, RLS и Storage", async t => {
   const db = new PGlite();
   t.after(() => db.close());
   await db.exec(`
-    create role anon; create role authenticated;
+    create role anon; create role authenticated; create role service_role bypassrls;
     create schema auth; create table auth.users(id uuid primary key, email text, email_confirmed_at timestamptz);
     create function auth.uid() returns uuid language sql stable as
       $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
@@ -46,6 +46,19 @@ test("Phase 02 · PostgreSQL, RLS и Storage", async t => {
     assert.deepEqual((await db.query("select * from workshop_settings")).rows,[]);
     await assert.rejects(db.query("update profiles set role='maker' where id=$1",[customer]),{code:"42501"});
     await assert.rejects(save(),{code:"42501"});
+  });
+  await t.test("Telegram launch is consumed once and only by the backend",async()=>{
+    const key = "a".repeat(64);
+    const consume = (seconds:number) => db.query<{used:boolean}>("select public.consume_telegram_launch($1,now()+$2*interval '1 second') as used",[key,seconds]);
+    for (const account of [undefined,customer,maker]) {
+      await asUser(account);
+      await assert.rejects(consume(120),{code:"42501"});
+    }
+    await db.exec("reset role; set role service_role");
+    assert.equal((await consume(-1)).rows[0].used,false);
+    assert.equal((await consume(400)).rows[0].used,false);
+    assert.equal((await consume(120)).rows[0].used,true);
+    assert.equal((await consume(120)).rows[0].used,false);
   });
   await t.test("черновик, его цена закупки и фотография закрыты от посетителя",async()=>{
     await asUser(maker);

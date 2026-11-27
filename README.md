@@ -81,3 +81,5 @@ npm run test:e2e
 [Отчёт и скриншоты Phase 02.2](docs/PHASE_02_2.md)
 
 [Аккаунт и регистрация](docs/ACCOUNT.md) · [Telegram Mini App и OIDC](docs/AUTH_TELEGRAM.md) · [Отчёт и снимки Phase 02.3](docs/PHASE_02_3.md)
+
+Настройка HTTPS-стенда, Telegram Mini App и привязки владельца — [Timeweb, Supabase и BotFather](docs/TIMEWEB_TELEGRAM.md).
