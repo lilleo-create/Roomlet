@@ -4,7 +4,7 @@ import { formContext, newInventoryItem } from "@/features/inventory/repository";
 import { ProductEditor } from "@/features/inventory/ProductEditor";
 
 export default async function NewProductPage() {
-  const {supabase} = await requireStaff();
+  const {supabase,showcase} = await requireStaff();
   const context = await formContext(supabase);
-  return <StudioShell active="products"><ProductEditor item={newInventoryItem(context.currency)} categories={context.categories}/></StudioShell>;
+  return <StudioShell active="products"><ProductEditor showcase={showcase} item={newInventoryItem(context.currency)} categories={context.categories}/></StudioShell>;
 }

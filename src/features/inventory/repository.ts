@@ -1,4 +1,5 @@
 import "server-only";
+import { wantsShowcase } from "@/features/studio/session";
 import { localDemoEnabled } from "@/lib/supabase/config";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { imageBucket, type InventoryItem, type ProductStatus, type Category } from "./model";
@@ -36,7 +37,7 @@ export async function loadInventoryItem(db: SupabaseClient, id: string): Promise
   if (!offer.data || !costs.data) throw new Error("Данные изделия неполны. Проверьте состояние записи.");
   const rows = media.data || [];
   const paths = rows.map(row => row.storage_path);
-  const local = localDemoEnabled();
+  const local = localDemoEnabled() || await wantsShowcase();
   const urls = paths.length && !local ? await db.storage.from(imageBucket).createSignedUrls(paths, 3600) : null;
   if (urls?.error || urls?.data?.some(row => !row.signedUrl)) throw new Error("Не удалось загрузить фотографии изделия.");
   return {

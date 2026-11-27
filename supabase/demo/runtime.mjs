@@ -1,19 +1,22 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
-import { readFile, writeFile, mkdir } from "node:fs/promises";
-import { resolve } from "node:path";
+import { readFile, writeFile, mkdir, mkdtemp } from "node:fs/promises";
+import { parentPort, workerData } from "node:worker_threads";
+import { tmpdir } from "node:os";
+import { resolve, join } from "node:path";
 import { createServer } from "node:http";
 import { getRequestListener } from "@hono/node-server";
 import { cleanDemo, seedDemo } from "./seed.mjs";
 import { previewAccounts, provisionPreviewAccounts } from "./accounts.mjs";
 
 const apiHost = "127.0.0.1";
-const apiPort = 54331;
-const apiURL = `http://${apiHost}:${apiPort}`;
-const state = resolve(".roomlet-demo");
+const showcase = workerData?.mode === "roomlet-showcase" && parentPort !== null;
+let apiPort = showcase ? 0 : 54331;
+let apiURL = "http://" + apiHost + ":" + apiPort;
+const state = showcase ? await mkdtemp(join(tmpdir(), "roomlet-showcase-")) : resolve(".roomlet-demo");
 const credentialsPath = resolve(state, "credentials.json");
-const command = process.argv[2] || "dev";
-if (!["dev", "api", "seed", "clean"].includes(command)) throw new Error("Expected dev, api, seed or clean");
-if (process.env.NODE_ENV === "production") throw new Error("This command is for local development only.");
+const command = showcase ? "showcase" : process.argv[2] || "dev";
+if (!showcase && !["dev", "api", "seed", "clean"].includes(command)) throw new Error("Expected dev, api, seed or clean");
+if (!showcase && process.env.NODE_ENV === "production") throw new Error("This command is for local development only.");
 await mkdir(state, {recursive:true});
 
 async function credentials() {
@@ -48,6 +51,16 @@ const apiServer = createServer((req,res)=>listener(req,res));
 // Reserve the port before opening a PGlite data directory. Concurrent launches may not
 // initialize a second connection to the same store. No CLI accepts a URL for a hosted project.
 await new Promise((ok,fail)=>apiServer.once("error",fail).listen(apiPort,apiHost,ok));
+apiPort = apiServer.address().port;
+apiURL = "http://" + apiHost + ":" + apiPort;
+let configPath = resolve("supabase/demo/config.toml");
+if (showcase) {
+  const template = await readFile(configPath, "utf8");
+  configPath = join(state, "config.toml");
+  await writeFile(configPath, template.replaceAll("54331", String(apiPort))
+    .replace("enable_confirmations = true","enable_confirmations = false")
+    .replace('".roomlet-demo/database"', '"memory://"'), { mode:0o600 });
+}
 let connection;
 let closeWeb;
 export async function closePreview() {
@@ -62,7 +75,13 @@ try {
   const { createApi } = await import("@supabase/lite/cli");
   // The Lite CLI also supports its own hosted service; this preview only opens the local app.
   const api = await createApi({root:state,authStorage:{getItem:async()=>null,setItem:async()=>{},removeItem:async()=>{}}});
-  const app = await api.project.local.createApp("supabase/demo/config.toml",{admin:false});
+  const app = await api.project.local.createApp(configPath,{admin:false});
+  if (showcase) {
+    // Lite 0.11 supplies its filesystem adapter under supabase/.temp by default.
+    // Give each disposable instance its own storage root before the first upload.
+    if (typeof app._storageAdapter?.basePath !== "string") throw new Error("Missing preview filesystem adapter");
+    app._storageAdapter.basePath = join(state,"storage");
+  }
   connection = app.connection;
   await app.ensureSystemSchema();
   const db = connection.driver;
@@ -81,8 +100,8 @@ try {
   await migratePreview(db);
   await connection.clearSchemaCache();
   const localClient = app.getClient({apikey:keys.publishableKey,auth:{persistSession:false,autoRefreshToken:false}});
-  const localAdmin = app.getClient({apikey:keys.serviceKey}).auth.admin;
-  await provisionPreviewAccounts(db, localClient.auth, await previewAccounts(state, keys), localAdmin);
+  const accounts = await previewAccounts(state, keys);
+  await provisionPreviewAccounts(db, localClient.auth, showcase ? accounts.filter(a => a.role === "maker") : accounts);
   const storage = app.getClient({apikey:keys.serviceKey,auth:{persistSession:false,autoRefreshToken:false}}).storage;
   const execute = async (action) => {
     if (action==="clean") await cleanDemo(db,storage); else await seedDemo(db,storage);
@@ -131,7 +150,9 @@ try {
       }
       return app.fetch(request,{peerAddress:env.incoming.socket.remoteAddress});
     }, {overrideGlobalObjects:false});
-    console.log("Roomlet demo API:",apiURL);
+    if (showcase) {
+      parentPort.postMessage({url:apiURL, key:keys.publishableKey, email:keys.email, password:keys.password});
+    } else console.log("Roomlet demo API:",apiURL);
     if(command==="dev"){
       const { startPreviewWeb } = await import("./web.mjs");
       closeWeb = await startPreviewWeb(keys.publishableKey);

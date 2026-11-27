@@ -4,9 +4,14 @@ import { useState, type FormEvent } from "react";
 import { PageHeading, Button, EmptyState, Input, Textarea } from "@/components/ui";
 import { track } from "@/lib/analytics";
 import { useStore } from "./StoreProvider";
+import { DatePicker } from "@/features/booking/DatePicker";
+import { todayInStudio } from "@/features/booking/calendar";
+import { useClock } from "@/features/booking/useClock";
 
-export function CustomPage() {
+export function CustomPage({ workshop }: { workshop: { today: string; timezone: string } | null }) {
   const { addBrief, demo } = useStore();
+  const clock = useClock();
+  const today = clock && workshop ? todayInStudio(clock.now, workshop.timezone) : workshop?.today;
   const [sent, setSent] = useState(false);
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -14,7 +19,7 @@ export function CustomPage() {
     const data = new FormData(event.currentTarget);
     const idea = String(data.get("idea")).trim();
     if (!idea) { const field = event.currentTarget.elements.namedItem("idea") as HTMLTextAreaElement; field.setCustomValidity("Опишите идею проекта."); field.reportValidity(); return; }
-    addBrief({ idea, budget: String(data.get("budget")), deadline: String(data.get("deadline")), reference: String(data.get("reference")) });
+    addBrief({ idea, budget: String(data.get("budget")), deadline: String(data.get("deadline") ?? ""), reference: String(data.get("reference")) });
     track("custom_request_submitted", { demo: true });
     setSent(true);
   }
@@ -30,7 +35,8 @@ export function CustomPage() {
         <Textarea name="idea" label="Ваша идея" rows={4} onInput={e => e.currentTarget.setCustomValidity("")} required maxLength={2000} placeholder="Например, гостиная из дома детства" />
         <Input name="reference" type="url" label="Ссылка на референс" placeholder="https://" maxLength={500} />
         <Input name="budget" label="Предполагаемый бюджет, ₽" type="number" min={1} max={100000000} />
-        <Input name="deadline" label="Желаемый срок" type="date" />
+        {today && workshop ? <DatePicker name="deadline" label="Желаемый срок" today={today} min={today} timezone={workshop.timezone}/>
+          : <p className="store-small" role="status">Выбор срока временно недоступен. Можно сохранить идею без даты.</p>}
         <Button type="submit">Сохранить идею</Button>
       </form>}
   </section>;

@@ -24,7 +24,7 @@ export async function previewAccounts(directory, keys) {
   return accounts;
 }
 
-export async function provisionPreviewAccounts(db, auth, accounts, admin) {
+export async function provisionPreviewAccounts(db, auth, accounts) {
   for (const { role, email, password } of accounts) {
     if (!Object.hasOwn(labels, role) || email !== role + "@roomlet.local") {
       throw new Error("Invalid local preview account definition");
@@ -34,9 +34,12 @@ export async function provisionPreviewAccounts(db, auth, accounts, admin) {
     const existing = (await db.query("select id from auth.users where email=$1", [email])).rows[0];
     let id = existing?.id;
     if (!existing) {
-      const { data, error } = await admin.createUser({ email, password, email_confirm:true });
+      const { data, error } = await auth.signUp({ email, password });
       if (error || !data.user?.id) throw error || new Error("Could not create preview account");
       id = data.user.id;
+      // Lite implements signup but not the hosted Admin endpoint. This database is
+      // private to the launcher; confirm only this exact newly generated account.
+      await db.query("update auth.users set email_confirmed_at=now() where id=$1 and email=$2",[id,email]);
     } else if (role !== "maker") {
       // Recover if sign-up succeeded before the first local role transaction committed.
       // An unrelated account with a matching email is never granted a workshop role.

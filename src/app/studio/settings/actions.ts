@@ -9,7 +9,8 @@ function finish(code:"saved"|"invalid"|"failed"):never {
   redirect("/studio/settings?result=" + code);
 }
 export async function saveSettings(form:FormData) {
-  const {supabase} = await requireStaff();
+  const {supabase,showcase} = await requireStaff();
+  if ((form.get("environment") ?? "live") !== (showcase ? "demo" : "live")) finish("invalid");
   const timezone = String(form.get("timezone") ?? "");
   const currency = String(form.get("currency") ?? "");
   const buffer = Number(form.get("buffer_minutes"));
@@ -21,7 +22,8 @@ export async function saveSettings(form:FormData) {
   finish(error ? "failed" : "saved");
 }
 export async function addBlock(form:FormData) {
-  const {supabase} = await requireStaff();
+  const {supabase,showcase} = await requireStaff();
+  if ((form.get("environment") ?? "live") !== (showcase ? "demo" : "live")) finish("invalid");
   const start_date=String(form.get("start")??""), end_date=String(form.get("end")??"");
   const reason=String(form.get("reason")??"").trim();
   if (!validDate(start_date)||!validDate(end_date)||end_date<start_date||reason.length>200) finish("invalid");
@@ -29,7 +31,8 @@ export async function addBlock(form:FormData) {
   finish(error?"failed":"saved");
 }
 export async function removeBlock(form:FormData) {
-  const {supabase} = await requireStaff();
+  const {supabase,showcase} = await requireStaff();
+  if ((form.get("environment") ?? "live") !== (showcase ? "demo" : "live")) finish("invalid");
   const id=String(form.get("id")??"");
   if (!/^[\da-f-]{36}$/i.test(id)) finish("invalid");
   const {error}=await supabase.from("blocked_periods").delete().eq("id",id).select("id").single();

@@ -82,7 +82,7 @@ test("Повторный seed сохраняет правки мастера, о
       role, email: role + "@roomlet.local", password: "local-test",
     }));
     const auth = {
-      async createUser({ email }) {
+      async signUp({ email }) {
         const user = (await db.query(
           "insert into auth.users values(gen_random_uuid(), $1, now()) returning id", [email],
         )).rows[0];
@@ -93,14 +93,14 @@ test("Повторный seed сохраняет правки мастера, о
       select role, display_name from public.profiles join auth.users using (id)
       where email like '%@roomlet.local' order by email
     `)).rows;
-    await provisionPreviewAccounts(db, auth, accounts, auth);
+    await provisionPreviewAccounts(db, auth, accounts);
     assert.deepEqual(await profiles(), [
       { role: "customer", display_name: "Покупатель Roomlet" },
       { role: "maker", display_name: "Мастер Roomlet" },
       { role: "owner", display_name: "Владелец Roomlet" },
     ]);
     await db.query("update public.profiles set role='customer', display_name='Имя мастера' where id=(select id from auth.users where email=$1)", [accounts[1].email]);
-    await provisionPreviewAccounts(db, auth, accounts, auth);
+    await provisionPreviewAccounts(db, auth, accounts);
     assert.deepEqual((await profiles())[1], { role: "customer", display_name: "Имя мастера" });
   });
 });

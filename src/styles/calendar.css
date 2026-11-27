@@ -1,0 +1,52 @@
+.bk-calendar { min-width: 0; container-type: inline-size; }
+.bk-calendar-heading, .bk-month-arrows, .bk-window, .bk-legend, .bk-picker-trigger { display: flex; align-items: center; }
+.bk-calendar-heading { justify-content: space-between; gap: var(--space-2); padding-bottom: var(--space-3); }
+.bk-calendar-heading strong { font: var(--h3); }
+.bk-calendar-heading strong::first-letter { text-transform: uppercase; }
+.bk-month-arrows { flex: none; gap: var(--space-1); }
+.bk-month-arrows button { width: var(--touch-target); height: var(--touch-target); background: var(--surface); }
+.bk-grid { border-block: 1px solid var(--border); }
+.bk-row { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); align-items: stretch; }
+.bk-row + .bk-row { border-top: 1px solid var(--border); }
+.bk-weekday { text-align: center; padding-block: var(--space-2); color: var(--muted); font: var(--caption); }
+.bk-grid button { display: grid; place-items: center; position: relative; width: 100%; min-height: var(--touch-target); padding: 4px 0; border: 0; background: var(--surface); color: var(--ink); font: var(--body); font-variant-numeric: tabular-nums; }
+.bk-grid button[aria-disabled="true"] { background: var(--canvas); color: var(--muted); text-decoration: line-through; cursor: default; }
+.bk-grid button:not([aria-disabled]):hover { box-shadow: inset 0 0 0 1px var(--primary); }
+.bk-grid button[aria-pressed="true"] { background: var(--primary); color: var(--on-primary); text-decoration: none; }
+.bk-grid button[data-range="inside"] { background: color-mix(in srgb, var(--primary) 12%, var(--surface)); color: var(--ink); }
+.bk-grid button[aria-current="date"]::after { content: ""; position: absolute; width: 18px; height: 2px; bottom: 7px; background: currentColor; }
+.bk-grid button:focus-visible { outline: 3px solid var(--primary-pressed); outline-offset: -3px; z-index: 1; }
+.bk-grid button i, .bk-legend i { display: inline-block; width: 5px; height: 5px; background: var(--success); border-radius: 100%; }
+.bk-grid button i { position: absolute; bottom: 2px; }
+.bk-grid i[data-mark="unavailable"], .bk-legend i[data-mark="unavailable"] { border-radius: 0; background: var(--muted); width: 7px; height: 2px; }
+.bk-grid i[data-mark="blocked"], .bk-legend i[data-mark="blocked"] { border-radius: 1px; background: var(--ink); }
+.bk-grid button[aria-pressed="true"]:not([data-range="inside"]) i { background: currentColor; }
+.bk-legend { flex-wrap: wrap; gap: 4px 16px; list-style: none; margin: var(--space-3) 0 0; padding: 0; color: var(--muted); font: var(--caption); }
+.bk-legend li { display: inline-flex; align-items: center; gap: 6px; }
+.bk-legend i[data-mark="today"] { border-radius: 0; background: var(--ink); width: 12px; height: 2px; }
+.bk-buyer, .bk-picker { min-width: 0; }
+.bk-buyer { margin-top: var(--space-4); }
+.bk-zone, .bk-picker-status { color: var(--muted); font: var(--small); overflow-wrap: anywhere; }
+.bk-buyer .bk-zone { margin: 0 0 var(--space-2); }
+.bk-window { align-items: flex-start; gap: var(--space-3); margin-top: var(--space-3); border-top: 1px solid var(--border); padding-block: var(--space-3); }
+.bk-window svg { flex: none; margin-top: 2px; color: var(--primary); }
+.bk-window p { margin: 0; font: var(--small); color: var(--muted); }
+.bk-window strong { display: block; margin-bottom: var(--space-1); }
+.bk-picker-trigger { justify-content: space-between; text-align: left; width: 100%; }
+.bk-picker-trigger svg { color: var(--primary); }
+.bk-clear { min-height: var(--touch-target); padding: 4px 0; justify-self: start; border: 0; background: none; color: var(--primary-hover); font: var(--small); text-decoration: underline; }
+.bk-range-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); margin: var(--space-3) 0; }
+.bk-range-fields div { padding: var(--space-2); border-top: 2px solid var(--border); }
+.bk-range-fields div[data-active] { border-color: var(--primary); }
+.bk-range-fields dt { color: var(--muted); font: var(--caption); }
+.bk-range-fields dd { margin: var(--space-1) 0 0; font: var(--small); font-weight: 600; }
+.bk-range-actions { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.bk-range-actions .bk-clear { flex: none; }
+.rs-primary:disabled { color: var(--muted); background: var(--border); cursor: not-allowed; }
+@container (max-width: 307px) {
+  .bk-grid { width: 308px; margin-inline: calc((100% - 308px) / 2); }
+}
+@media (max-width: 360px) {
+  .ui-dialog:has(.bk-calendar) { width: calc(100% - 8px); margin: auto; padding-inline: 2px; }
+  .ui-dialog:has(.bk-calendar) :is(.ui-dialog-heading, .bk-zone, .bk-calendar-heading, .bk-clear) { margin-inline: 8px; }
+}

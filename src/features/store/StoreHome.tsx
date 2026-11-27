@@ -22,9 +22,9 @@ export function StoreHome({ products, demo = false, composition = "a" }: {
         <PencilRuler aria-hidden /><span><strong>Создадим на заказ</strong><small>По образцу или вашей идее</small></span><ArrowRight aria-hidden />
       </Link>
     </nav>
-    <WorkshopCarousel products={ordered} />
+    {ordered.length > 0 && <WorkshopCarousel products={ordered} />}
     <section className="home-project">
-      <div className="home-project-photo"><Photo photo={materials} sizes="(max-width: 760px) 95vw, 45vw" /></div>
+      {ordered.length > 0 && <div className="home-project-photo"><Photo photo={materials} sizes="(max-width: 760px) 95vw, 45vw" /></div>}
       <div><h2>Индивидуальный проект</h2>
         <p>{demo ? "Воссоздадим в миниатюре комнату из вашей любимой истории." : "Миниатюра по вашей идее. Приём новых заявок пока закрыт."}</p>
         <Link href="/custom">{demo ? "Описать идею" : "Об индивидуальном заказе"}</Link>

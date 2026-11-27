@@ -12,7 +12,7 @@ import { preparePhoto } from "./optimize";
 
 type Photo = {key:string;url:string;alt:string;file?:File};
 
-export function ProductEditor({item, categories, notice}: {item:InventoryItem;categories:Category[];notice?:string}) {
+export function ProductEditor({item, categories, notice, showcase=false}: {showcase?:boolean;item:InventoryItem;categories:Category[];notice?:string}) {
   const router = useRouter();
   const [photos, setPhotos] = useState<Photo[]>(() => item.media.map(row=>({key:row.storage_path,url:row.url,alt:row.alt_text})));
   const [categoryList,setCategoryList] = useState(categories);
@@ -50,7 +50,7 @@ export function ProductEditor({item, categories, notice}: {item:InventoryItem;ca
     if (categoryPending) return;
     setCategoryPending(true); setCategoryError("");
     try {
-      const result = await createCategory(categoryName);
+      const result = await createCategory(categoryName,showcase);
       if (!result.item) { setCategoryError(result.error || "Не удалось добавить категорию."); return; }
       const added=result.item;
       setCategoryList(prev => prev.some(c=>c.id===added.id) ? prev : [...prev,added]);
@@ -73,7 +73,7 @@ export function ProductEditor({item, categories, notice}: {item:InventoryItem;ca
         form.set("upload-"+photo.key, await preparePhoto(photo.file), "photo.webp");
       }
       setProgress("Сохранение изделия…");
-      const response=await fetch("/studio/products/"+item.id+"/save", {method:"POST",body:form});
+      const response=await fetch("/studio/products/"+item.id+"/save", {method:"POST",headers:{"x-roomlet-environment":showcase?"demo":"live"},body:form});
       if (response.redirected) throw new Error("Сессия завершилась. Войдите в Studio повторно.");
       const result=await response.json();
       if (!response.ok) throw new Error(result.error || "Не удалось сохранить изделие.");
@@ -85,7 +85,7 @@ export function ProductEditor({item, categories, notice}: {item:InventoryItem;ca
     if (pending.current || !item.updated_at) return;
     pending.current=true;setDeleteOpen(false);setError("");setProgress("Удаление…");
     try {
-      const response=await fetch("/studio/products/"+item.id+"/save", {method:"DELETE", headers:{"x-product-version":item.updated_at}});
+      const response=await fetch("/studio/products/"+item.id+"/save", {method:"DELETE", headers:{"x-product-version":item.updated_at,"x-roomlet-environment":showcase?"demo":"live"}});
       if (response.redirected) throw new Error("Сессия завершилась. Войдите в Studio повторно.");
       const result=await response.json();
       if (!response.ok) throw new Error(result.error || "Не удалось удалить изделие.");

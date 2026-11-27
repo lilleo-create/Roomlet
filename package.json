@@ -20,8 +20,11 @@
     "predemo:dev": "npm run demo:build"
   },
   "dependencies": {
+    "@electric-sql/pglite": "0.6.0",
     "@fontsource-variable/golos-text": "5.3.0",
     "@fontsource-variable/manrope": "5.3.0",
+    "@hono/node-server": "1.19.19",
+    "@supabase/lite": "0.11.0",
     "@supabase/ssr": "0.12.7",
     "@supabase/supabase-js": "2.119.2",
     "keen-slider": "6.8.6",
@@ -32,10 +35,7 @@
     "sharp": "0.35.5"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "0.6.0",
-    "@hono/node-server": "1.19.19",
     "@playwright/test": "1.65.1",
-    "@supabase/lite": "0.11.0",
     "@tailwindcss/postcss": "4.3.5",
     "@types/node": "^22",
     "@types/react": "^19",

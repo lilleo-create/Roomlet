@@ -94,6 +94,10 @@ test("Phase 02 · PostgreSQL, RLS и Storage", async t => {
   await t.test("часовой пояс, резерв и блокировка определяют публичное расписание",async()=>{
     await asUser(maker);
     const hours=Array.from({length:7},(_,i)=>({weekday:i+1,minutes:300}));
+    const settings = () => db.query<{timezone:string;configured:boolean}>("select timezone, (created_at <> updated_at or timezone <> 'UTC') as configured from workshop_settings");
+    assert.deepEqual((await settings()).rows,[{timezone:"UTC",configured:false}]);
+    await db.query("select save_workshop_settings($1,$2,$3,$4::jsonb)",["UTC","RUB",0,JSON.stringify(hours)]);
+    assert.deepEqual((await settings()).rows,[{timezone:"UTC",configured:true}]);
     await db.query("select save_workshop_settings($1,$2,$3,$4::jsonb)",["Asia/Tokyo","JPY",45,JSON.stringify(hours)]);
     const days=(await db.query<{day:string;available_minutes:number}>("select day::text,available_minutes from roomlet_availability()")).rows;
     assert.equal(days.length,70);
@@ -101,6 +105,8 @@ test("Phase 02 · PostgreSQL, RLS и Storage", async t => {
     await db.query("insert into blocked_periods(start_date,end_date,reason) values ($1,$1,'Личное время')",[days[0].day]);
     await asUser();
     assert.deepEqual((await db.query("select day::text,available_minutes from roomlet_availability() limit 1")).rows,[{day:days[0].day,available_minutes:0}]);
+    const {schedule}=(await db.query<{schedule:{timezone:string;days:typeof days}}>("select roomlet_booking_calendar() as schedule")).rows[0];
+    assert.deepEqual(schedule,{timezone:"Asia/Tokyo",days:[{day:days[0].day,available_minutes:0},...days.slice(1)]});
     await assert.rejects(db.query("select * from blocked_periods"),{code:"42501"});
   });
 

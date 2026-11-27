@@ -27,7 +27,8 @@ function refresh(id: string, slug: string) {
 }
 
 export async function POST(request: Request, context: Context) {
-  const {supabase} = await requireStaff();
+  const {supabase,showcase} = await requireStaff();
+  if ((request.headers.get("x-roomlet-environment") ?? "live") !== (showcase ? "demo" : "live")) return fail("Режим мастерской изменился. Откройте карточку заново.",409);
   if (!sameOrigin(request)) return fail("Запрос должен быть отправлен со страницы мастерской.", 403);
   const {id} = await context.params;
   if (!uuidPattern.test(id)) return fail("Некорректный идентификатор.", 400);
@@ -83,7 +84,8 @@ export async function POST(request: Request, context: Context) {
 }
 
 export async function DELETE(request: Request, context: Context) {
-  const {supabase} = await requireStaff();
+  const {supabase,showcase} = await requireStaff();
+  if ((request.headers.get("x-roomlet-environment") ?? "live") !== (showcase ? "demo" : "live")) return fail("Режим мастерской изменился. Откройте карточку заново.",409);
   if (!sameOrigin(request)) return fail("Недоступный источник запроса.", 403);
   const {id} = await context.params;
   const expected = request.headers.get("x-product-version");

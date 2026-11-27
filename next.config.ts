@@ -9,7 +9,7 @@ const config: NextConfig = {
   devIndicators: false,
   async headers() {
     const headers = [{ key: "X-Robots-Tag", value: "noindex, nofollow" }];
-    return ["/studio/:path*", "/design-system/:path*", "/api/:path*", "/objects/:path*"].map(source => ({ source, headers }));
+    return ["/demo/:path*", "/studio/:path*", "/design-system/:path*", "/api/:path*", "/objects/:path*"].map(source => ({ source, headers }));
   },
 };
 export default config;

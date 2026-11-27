@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 export default async function DesignSystemPage() {
   await requireStaff("not-found");
-  const products = isDemoCatalog() ? await loadCatalog({ limit: 4 }) : [];
+  const products = (await isDemoCatalog()) ? await loadCatalog({ limit: 4 }) : [];
   const samples = products.length >= 2
     ? <StoreSamples products={products} />
     : <Link href="/catalog">Открыть каталог мастерской</Link>;

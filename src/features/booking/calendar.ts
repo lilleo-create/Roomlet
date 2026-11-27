@@ -7,9 +7,14 @@ const longDate = new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long
 const shortDate = new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", timeZone: "UTC" });
 const monthName = new Intl.DateTimeFormat("ru-RU", { month: "long", year: "numeric", timeZone: "UTC" });
 export function todayInStudio(now:Date, timeZone:string): DayKey {
-  const workshopDate = new Intl.DateTimeFormat("en-CA", {year:"numeric",month:"2-digit",day:"2-digit",timeZone});  const parts = workshopDate.formatToParts(now);
+  const workshopDate = new Intl.DateTimeFormat("en-CA", {year:"numeric",month:"2-digit",day:"2-digit",timeZone});
+  const parts = workshopDate.formatToParts(now);
   const part = (type: string) => parts.find((item) => item.type === type)?.value;
   return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
+export function timeInZone(now: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit", timeZone }).format(now);
 }
 
 export function validDate(key: string): boolean {
