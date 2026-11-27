@@ -47,6 +47,7 @@ export function ProductDetail({ product }: { product: Product }) {
           {mode === "made" && product.requiresSketch && <p>Изготовление начинается после согласования эскиза.</p>}
           {mode === "made" && <div className="store-booking"><BuyerBooking onSelect={setSlot} /><p className="store-small">Срок изготовления мастер согласует после рассмотрения заявки.</p></div>}
         </>}
+        {product.demo && !demo && <p className="store-demo-note">Тестовое изделие. Покупка временно недоступна.</p>}
         {demo && <p className="store-demo-note">Демонстрационное изделие. Заявка сохраняется только на этом устройстве.</p>}
       </div>
     </div>

@@ -1,7 +1,4 @@
 import "server-only";
-import { cookies } from "next/headers";
-import { localDemoEnabled } from "@/lib/supabase/config";
-import { showcaseClient } from "@/lib/supabase/showcase";
 import { cache } from "react";
 import { notFound, redirect } from "next/navigation";
 import { createRoomletClient } from "@/lib/supabase/server";
@@ -25,13 +22,10 @@ export const requireAccountStaff = cache(async (denied: "login" | "not-found" | 
   return { supabase, user, role: role as "owner" | "maker" };
 });
 
-export const wantsShowcase = cache(async () => !localDemoEnabled() && (await cookies()).get("roomlet-environment")?.value === "demo");
-
-export const requireStaff = cache(async (denied: "login" | "not-found" | "demo-login" = "login") => {
-  const session = await requireAccountStaff(denied);
-  if (!await wantsShowcase()) return {...session, showcase:false};
-  return {...session, showcase:true, supabase:await showcaseClient(true)};
-});
+// Compatibility for already open forms. Hosted data always uses the account's Supabase.
+export const wantsShowcase = async () => false;
+export const requireStaff = cache(async (denied: "login" | "not-found" | "demo-login" = "login") =>
+  ({...await requireAccountStaff(denied), showcase:false}));
 
 export const requireOwner = cache(async () => {
   const session = await requireStaff("not-found");

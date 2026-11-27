@@ -1,5 +1,3 @@
-import { leaveShowcase } from "@/app/demo/actions";
-import { localDemoEnabled } from "@/lib/supabase/config";
 import Link from "next/link";
 import { Store, CalendarDays, ClipboardList, LayoutDashboard, LogOut, Package, Settings, Users } from "lucide-react";
 import { leaveStudio } from "@/app/studio/actions";
@@ -22,9 +20,6 @@ export async function StudioShell({active, children}: {active: StudioSection; ch
     </header>
     <nav className={role === "owner" && !showcase ? "rs-nav rs-nav-owner" : "rs-nav"} aria-label="Мастерская">{sections.map(({id,label,href,Icon}) =>
       <Link href={href} key={id} aria-current={active === id ? "page" : undefined}><Icon strokeWidth={1.7} size={19} aria-hidden/><span>{label}</span></Link>)}</nav>
-    <main className="rs-content">{active === "today" && !localDemoEnabled() && <div className="rs-environment">
-      <span>{showcase ? "Демонстрационная мастерская" : "Рабочая мастерская"}</span>
-      {showcase ? <form action={leaveShowcase}><button>В рабочую мастерскую</button></form> : <Link href="/demo">Открыть демоверсию</Link>}
-    </div>}{showcase && active !== "today" && <p className="rs-cap">Демонстрационная мастерская</p>}{children}</main>
+    <main className="rs-content">{children}</main>
   </div>;
 }
