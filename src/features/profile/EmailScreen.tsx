@@ -9,7 +9,8 @@ export async function EmailScreen({ mode, query }: { mode: AuthMode; query: Auth
   const next = authDestination(query.next);
   if ((mode === "login" || mode === "register") && await readAccount()) redirect(next);
   const code = typeof query.code === "string" && /^[\w.-]{8,1024}$/.test(query.code) ? query.code : undefined;
-  return <EmailForm mode={mode} next={next} code={code}
+  const localProof = localDemoEnabled() && typeof query.local_proof === "string" && /^[a-zA-Z0-9_-]{32,256}$/.test(query.local_proof) ? query.local_proof : undefined;
+  return <EmailForm localProof={localProof} mode={mode} next={next} code={code}
     flowId={typeof query.sb_flow_id === "string" ? query.sb_flow_id.slice(0, 65) : undefined} recovered={mode === "login" && query.success === "recovered"}
-    demo={localDemoEnabled()} invalidLink={Boolean(query.error || query.code && !code)} />;
+    demo={localDemoEnabled()} invalidLink={Boolean(query.error || query.error_code || query.code && !code)} />;
 }

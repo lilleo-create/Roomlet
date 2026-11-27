@@ -63,10 +63,10 @@ export function WorkshopCarousel({products}: {products: readonly Product[]}) {
         viewport.current?.focus({preventScroll:true});
         if (event.key === "ArrowLeft") instance.current?.prev(); else instance.current?.next();
       }}>
-      {products.map(p => <div key={identity(p)} className="keen-slider__slide" data-work={identity(p)}
+      {products.map((p, index) => <div key={identity(p)} className="keen-slider__slide" data-work={identity(p)}
         onClickCapture={event => {
           if ((event.target as Element).closest("a")) try { sessionStorage.setItem(positionKey,identity(p)); } catch { /* Optional storage. */ }
-        }}><ProductCard product={p} /></div>)}
+        }}><ProductCard product={p} photo={index === 0 ? p.media[1] : undefined} /></div>)}
     </div>
   </section>;
 }

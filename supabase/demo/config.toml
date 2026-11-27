@@ -3,6 +3,7 @@ project_id = "roomlet-local-demo"
 [api]
 enabled = true
 port = 54331
+external_url = "http://127.0.0.1:54331"
 schemas = ["public"]
 
 [db]
@@ -12,6 +13,7 @@ url = ".roomlet-demo/database"
 [auth]
 enabled = true
 site_url = "http://127.0.0.1:3211"
+additional_redirect_urls = ["http://127.0.0.1:3211/profile/**", "http://localhost:3211/profile/**"]
 enable_signup = true
 jwt_secret = "env(ROOMLET_DEMO_JWT_SECRET)"
 publishable_key = "env(ROOMLET_DEMO_PUBLISHABLE_KEY)"
@@ -19,7 +21,7 @@ secret_key = "env(ROOMLET_DEMO_SERVICE_KEY)"
 
 [auth.email]
 enable_signup = true
-enable_confirmations = false
+enable_confirmations = true
 
 [storage]
 enabled = true

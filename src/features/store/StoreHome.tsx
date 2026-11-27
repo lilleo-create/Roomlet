@@ -11,17 +11,12 @@ export function StoreHome({ products, demo = false, composition = "a" }: {
   products: readonly Product[]; demo?: boolean; composition?: "a" | "b";
 }) {
   const ordered = [...products].sort((a,b) => availabilityOrder(a) - availabilityOrder(b));
-  const collections = [
-    {name:"В наличии", filter:"ready", product:ordered.find(p => p.status === "active" && p.ready)},
-    {name:"Под заказ", filter:"made", product:ordered.find(p => p.status === "active" && p.made)},
-  ];
   return <div className={`home-composition composition-${composition}`}>
     <FeaturedObject products={ordered} />
     <nav className="home-collections" aria-label="Коллекции">
-      {collections.map(({name,filter,product}) => <Link key={filter} aria-label={name} href={`/catalog?availability=${filter}`}>
-        <span className="home-category-photo"><Photo photo={product?.media[0] ?? materials} sizes="(max-width: 760px) 44vw, 40vw" /></span>
-        <span>{name}</span>
-      </Link>)}
+      <Link href="/catalog?availability=ready">В наличии</Link>
+      <Link href="/catalog?availability=made">Под заказ</Link>
+      <Link href="/catalog">Весь каталог</Link>
     </nav>
     {ordered.length > 0 && <WorkshopCarousel products={ordered} />}
     <section className="home-project">

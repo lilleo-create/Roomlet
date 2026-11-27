@@ -26,11 +26,11 @@ export function ProductStatus({ product }: { product: Product }) {
   </span>;
 }
 
-export function ProductCard({ product }: { product: Product }) {
+export function ProductCard({ product, photo = product.media[0] }: { product: Product; photo?: Product["media"][number] }) {
   const href = `/product/${product.slug}`;
   return <article className="store-card">
     <div className="store-card-visual">
-      <Photo photo={product.media[0]} sizes="(max-width: 355px) 100vw, (max-width: 960px) 48vw, (max-width: 1199px) 32vw, 25vw" />
+      <Photo photo={photo} sizes="(max-width: 355px) 100vw, (max-width: 960px) 48vw, (max-width: 1199px) 32vw, 25vw" />
       <FavoriteButton product={product} />
     </div>
     <div className="store-card-meta"><ProductStatus product={product} /></div>

@@ -50,7 +50,7 @@ const apiServer = createServer((req,res)=>listener(req,res));
 await new Promise((ok,fail)=>apiServer.once("error",fail).listen(apiPort,apiHost,ok));
 let connection;
 let closeWeb;
-async function close() {
+export async function closePreview() {
   await closeWeb?.();
   apiServer.close();
   await connection?.close();
@@ -81,14 +81,15 @@ try {
   await migratePreview(db);
   await connection.clearSchemaCache();
   const localClient = app.getClient({apikey:keys.publishableKey,auth:{persistSession:false,autoRefreshToken:false}});
-  await provisionPreviewAccounts(db, localClient.auth, await previewAccounts(state, keys));
+  const localAdmin = app.getClient({apikey:keys.serviceKey}).auth.admin;
+  await provisionPreviewAccounts(db, localClient.auth, await previewAccounts(state, keys), localAdmin);
   const storage = app.getClient({apikey:keys.serviceKey,auth:{persistSession:false,autoRefreshToken:false}}).storage;
   const execute = async (action) => {
     if (action==="clean") await cleanDemo(db,storage); else await seedDemo(db,storage);
     return action==="clean" ? "Demo collection removed." : "Demo collection seeded.";
   };
   if (maintenance) {
-    console.log(await execute(command)); await close();
+    console.log(await execute(command)); await closePreview();
   } else {
     if (!(await db.query("select 1 from roomlet_private.demo_seed_state where name='initialized'")).rows.length) await execute("seed");
     let busy=false;
@@ -106,9 +107,25 @@ try {
         try{return new Response(await execute(action));} catch(e){console.error(e.message);return new Response("Operation failed.",{status:500});} finally{busy=false;}
       }
       const rest=/^\/rest\/v1\/(?:rpc\/)?[a-z][a-z0-9_]*$/.test(url.pathname);
-      const auth=/^\/auth\/v1\/(token|logout|user|signup|recover|verify)$/.test(url.pathname);
+      const auth=/^\/auth\/v1\/(token|logout|user|signup|resend|recover|verify)$/.test(url.pathname);
       const media=url.pathname.startsWith("/storage/v1/object/");
       if(!rest && !auth && !media) return new Response(null,{status:404});
+      const mailLink = request.method === "GET" && url.pathname === "/auth/v1/verify";
+      // The Lite GET verifier returns bearer tokens in a fragment. Forward its
+      // one-time proof to the local SSR form, which verifies it with Supabase.
+      if (mailLink) {
+        const type = url.searchParams.get("type");
+        const path = type === "signup" ? "/profile/confirm" : type === "recovery" ? "/profile/recover" : null;
+        const target = URL.parse(url.searchParams.get("redirect_to") || "");
+        if (!path || !target || !["http://127.0.0.1:3211","http://localhost:3211"].includes(target.origin)
+          || target.pathname !== path || target.username || target.password) return new Response(null,{status:400});
+        const proof = url.searchParams.get("token") || "";
+        if (!/^[a-zA-Z0-9_-]{32,256}$/.test(proof)) return new Response(null,{status:400});
+        const callback = new URL(path,target.origin);
+        callback.searchParams.set("next",target.searchParams.get("next") || "/profile");
+        callback.searchParams.set("local_proof",proof);
+        return new Response(null,{status:303,headers:{Location:callback.href,"Cache-Control":"no-store","Referrer-Policy":"no-referrer"}});
+      }
       if(request.headers.get("apikey")!==keys.publishableKey && !(media && request.method==="GET" && url.pathname.startsWith("/storage/v1/object/sign/") && url.searchParams.has("token"))) {
         return new Response(null,{status:401});
       }
@@ -119,11 +136,11 @@ try {
       const { startPreviewWeb } = await import("./web.mjs");
       closeWeb = await startPreviewWeb(keys.publishableKey);
     }
-    process.once("SIGINT",()=>close().then(()=>process.exit(0)));
-    process.once("SIGTERM",()=>close().then(()=>process.exit(0)));
+    process.once("SIGINT",()=>closePreview().then(()=>process.exit(0)));
+    process.once("SIGTERM",()=>closePreview().then(()=>process.exit(0)));
   }
 } catch(error) {
-  await close();
+  await closePreview();
   console.error(error.stack || error);
   process.exitCode=1;
 }

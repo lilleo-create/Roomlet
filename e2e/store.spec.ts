@@ -62,12 +62,8 @@ test("на узком телефоне главный объект виден д
   const nav = (await page.locator(".store-bottom-nav").boundingBox())!;
   expect(box.y).toBeGreaterThan(0);
   expect(Math.min(nav.y - box.y, box.height)).toBeGreaterThan(box.height * 0.7);
-  const caption = page.locator(".store-hero-caption a");
-  const first = await caption.getAttribute("href");
-  await page.getByRole("button", { name: "Следующий объект" }).click();
-  await expect(caption).not.toHaveAttribute("href", first!);
-  await page.getByRole("button", { name: "Предыдущий объект" }).click();
-  await expect(caption).toHaveAttribute("href", first!);
+  await expect(page.locator(".featured-link")).toHaveAttribute("href","/product/night-library");
+  await expect(page.getByRole("button",{name:"Следующий объект"})).toHaveCount(0);
 
   const workshop = page.getByRole("group", { name: "Работы мастерской" });
   const slides = workshop.locator("[data-work]");
