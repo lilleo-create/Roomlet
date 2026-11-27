@@ -4,7 +4,7 @@ import {supabaseConfig} from "@/lib/supabase/config";
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({request});
-  if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
+  if (Reflect.get(process.env, "NEXT_PUBLIC_SUPABASE_URL") && Reflect.get(process.env, "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY")) {
     const {url,key} = supabaseConfig();
     const supabase = createServerClient(url,key,{cookies:{
       getAll:()=>request.cookies.getAll(),
@@ -19,4 +19,4 @@ export async function proxy(request: NextRequest) {
   response.headers.set("Cache-Control","private, no-store");
   return response;
 }
-export const config = {matcher:["/studio/:path*"]};
+export const config = {matcher:["/studio/:path*","/design-system/:path*"]};

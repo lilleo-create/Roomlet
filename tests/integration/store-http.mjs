@@ -54,7 +54,7 @@ const backend = createServer((req, res) => {
 const backendUrl = await listen(backend);
 Object.assign(process.env, {
   NEXT_PUBLIC_SUPABASE_URL: backendUrl, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: key,
-  ROOMLET_DEMO_MODE: "false", NODE_ENV: "production", NEXT_TELEMETRY_DISABLED: "1",
+  ROOMLET_DEMO_MODE: "true", NODE_ENV: "production", NEXT_TELEMETRY_DISABLED: "1",
 });
 const networkFetch = globalThis.fetch;
 // Guard against accidentally compiled-in hosted settings in a stale build.
@@ -78,7 +78,28 @@ try {
   assert.doesNotMatch(await html("/product/stolik"), /Столик Пион/);
   assert.equal((await get("/objects/atelier.webp")).status, 404);
 
+  const design = await get("/design-system");
+  assert.equal(design.status, 404);
+  assert.match(design.headers.get("x-robots-tag") ?? "", /noindex/);
+  const studio = await networkFetch(origin + "/studio/products", { redirect: "manual" });
+  if (studio.status === 200) {
+    // Next can stream the loading boundary before a server component redirects.
+    const streamed = await studio.text();
+    assert.match(streamed, /http-equiv="refresh" content="[^"]*url=\/studio\/login"/);
+    assert.doesNotMatch(streamed, /href="\/studio\/products\/new"/);
+  } else {
+    assert.equal(studio.status, 307);
+    assert.match(studio.headers.get("location") ?? "", /\/studio\/login$/);
+  }
+  for (const path of ["/", "/catalog", "/profile", "/favorites"]) {
+    assert.doesNotMatch(await html(path), /href="\/(?:studio|design-system)(?:[/"?#])/);
+  }
+
   published = true;
+  product.is_demo = true;
+  assert.match(await html("/catalog"), /В каталоге пока нет изделий/);
+  assert.doesNotMatch(await html("/product/stolik"), /Столик Пион/);
+  product.is_demo = false;
   product.media = [{storage_path:id + "/" + cover, alt_text:"Фасад", sort_order:0}];
   const first = await html("/product/stolik");
   assert.match(first, /Столик Пион/);

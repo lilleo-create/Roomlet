@@ -2,6 +2,7 @@ export type ProductStatus = "draft" | "published" | "archived";
 export type Category = { id: string; name: string };
 export type MediaItem = { storage_path: string; alt_text: string; url: string };
 export type InventoryItem = {
+  is_demo?: boolean; catalog_stage?: "active" | "upcoming" | "sold";
   id: string; slug: string; title: string; description: string; category_id: string | null;
   dimensions: string; materials: string; status: ProductStatus; updated_at: string | null;
   currency: string; price_minor: number; cost_minor: number; planned_minutes: number;
@@ -61,7 +62,10 @@ export function productFields(form: FormData) {
   if (!Object.hasOwn(statusLabels, status)) throw new Error("Выберите статус изделия.");
   const expected = field(form, "expected_updated_at", 50);
   if (expected && !Number.isFinite(Date.parse(expected))) throw new Error("Обновите карточку и повторите сохранение.");
+  const stage = field(form, "catalog_stage", 12);
+  if (stage && !["active","upcoming","sold"].includes(stage)) throw new Error("Выберите доступность изделия.");
   return {
+    ...(stage ? { catalog_stage: stage } : {}),
     title: field(form, "title", 200, true), description: field(form, "description", 10000),
     materials: field(form, "materials", 1000), dimensions: field(form, "dimensions", 1000),
     category_id: category || null, status, currency, expected_updated_at: expected || null,
@@ -75,6 +79,9 @@ export function productFields(form: FormData) {
 export function publicationError(product: ReturnType<typeof productFields>, photoCount: number) {
   if (product.status !== "published") return null;
   if (!product.category_id || product.price_minor === 0 || photoCount < 1) return "Для публикации нужны категория, фотография и цена больше нуля.";
+  if (product.catalog_stage === "upcoming" || product.catalog_stage === "sold") {
+    return product.ready_quantity || product.made_to_order ? "Уберите доступные предложения для этого статуса." : null;
+  }
   if (!product.ready_quantity && !product.made_to_order) return "Добавьте готовый экземпляр или разрешите изготовление под заказ.";
   return null;
 }

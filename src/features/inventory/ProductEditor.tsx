@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import { Photo as ProductPhoto } from "@/components/Photo";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
@@ -97,6 +97,7 @@ export function ProductEditor({item, categories, notice}: {item:InventoryItem;ca
   return <div className="inventory">
     <Link href="/studio/products" className="inventory-back">← Все изделия</Link>
     <h1>{item.updated_at ? item.title : "Новое изделие"}</h1>
+    {item.is_demo && <p className="rs-demo">Демонстрационное изделие</p>}
     {notice && <p role="status" className="inventory-note">{notice}</p>}
     <form onSubmit={save}>
       <fieldset disabled={Boolean(progress)} className="inventory-fields">
@@ -112,8 +113,8 @@ export function ProductEditor({item, categories, notice}: {item:InventoryItem;ca
         </section>
         <section><h2>Фотографии</h2><p>Первая фотография станет обложкой. До 12 снимков, каждый до 24 МБ.</p>
           <div className="inventory-gallery">{photos.map((photo,index)=><div key={photo.key} className="inventory-photo">
-            <Image src={photo.url} alt={photo.alt || "Фотография "+(index+1)} width={240} height={160} unoptimized/>
-            <div><span>{index===0?"Обложка":"Фото "+(index+1)}</span>
+            <div className="inventory-photo-preview"><ProductPhoto photo={{src:photo.url, alt:photo.alt || "Фотография "+(index+1)}} sizes="(max-width: 480px) 100vw, 240px" /></div>
+            <div className="inventory-photo-tools"><span>{index===0?"Обложка":"Фото "+(index+1)}</span>
               {index>0 && <IconButton label={"Сделать обложкой фото "+(index+1)} onClick={()=>setPhotos([photo,...photos.filter(p=>p!==photo)])}><ArrowUp size={17}/></IconButton>}
               <IconButton label={"Убрать фото "+(index+1)} onClick={()=>{if(photo.file){URL.revokeObjectURL(photo.url);previews.current.delete(photo.url);}setPhotos(photos.filter(p=>p!==photo));}}><Trash2 size={17}/></IconButton></div>
             <Input label={"Подпись к фото "+(index+1)} maxLength={300} value={photo.alt} onChange={e=>setPhotos(photos.map(p=>p===photo?{...p,alt:e.target.value}:p))}/>
@@ -130,6 +131,9 @@ export function ProductEditor({item, categories, notice}: {item:InventoryItem;ca
           <label className="inventory-check"><input type="checkbox" name="requires_sketch" defaultChecked={item.requires_sketch}/> Требуется эскиз</label>
         </section>
         <section><h2>Публикация</h2>
+          {item.is_demo && <Select label="Доступность для витрины" name="catalog_stage" defaultValue={item.catalog_stage ?? "active"}>
+            <option value="active">По наличию и условиям заказа</option><option value="upcoming">Предстоящий выпуск</option><option value="sold">Продано</option>
+          </Select>}
           <Select label="Статус изделия" name="status" value={status} onChange={e=>setStatus(e.target.value as InventoryItem["status"])}>
             {Object.entries(statusLabels).map(([value,label])=><option value={value} key={value}>{label}</option>)}</Select>
           <p>В магазине видны опубликованные изделия. Чтобы снять изделие с публикации, сохраните его как черновик или перенесите в архив.</p>

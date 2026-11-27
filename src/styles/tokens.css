@@ -36,7 +36,10 @@
   --space-16: 64px;
   --page-gutter: var(--space-5);
   --section-gap: var(--space-10);
-  --card-gap: var(--space-4);
+  --card-gap: clamp(12px, 1.65vw, 24px);
+  --product-photo-ratio: 4 / 3;
+  --content-width: 1512px;
+  --store-gutter: clamp(20px, 4.6vw, 72px);
   --button-height: 52px;
   --input-height: 48px;
   --touch-target: 44px;
@@ -59,6 +62,10 @@ button:disabled { cursor: not-allowed; }
 a { color: inherit; }
 :focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; }
 img { max-width: 100%; }
+button svg, a svg { flex-shrink: 0; }
+@media (max-width: 760px) {
+  html { scroll-padding-bottom: calc(var(--nav-height) + var(--space-3)); }
+}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

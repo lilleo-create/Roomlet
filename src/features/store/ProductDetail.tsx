@@ -3,13 +3,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Check, ShoppingBag } from "lucide-react";
-import { Button, ObjectNumber, StatusTag } from "@/components/ui";
+import { Button, ObjectNumber } from "@/components/ui";
 import { BuyerBooking } from "@/features/booking/BuyerBooking";
 import { ProductPrice } from "./ProductPrice";
 import { track } from "@/lib/analytics";
 import { ImageGallery } from "./ImageGallery";
-import { FavoriteButton } from "./ProductCard";
-import { statusLabel, type Product } from "./products";
+import { FavoriteButton, ProductStatus } from "./ProductCard";
+import type { Product } from "./products";
 import { lineKey, type PurchaseMode, useStore } from "./StoreProvider";
 
 export function ProductDetail({ product }: { product: Product }) {
@@ -34,8 +34,9 @@ export function ProductDetail({ product }: { product: Product }) {
     <div className="store-product-layout">
       <ImageGallery product={product} />
       <div className="store-product-info">
-        <div className="store-product-id"><ObjectNumber value={product.number} /><FavoriteButton product={product} /></div>
-        <h1>{product.title}</h1><StatusTag tone={product.ready ? "success" : "neutral"}>{statusLabel(product)}</StatusTag>
+        <div className="store-product-id"><ObjectNumber value={"№ " + product.number} /><FavoriteButton product={product} /></div>
+        <h1>{product.title}</h1><ProductStatus product={product} />
+        {product.status !== "active" && <p className="store-detail-price"><ProductPrice product={product} /></p>}
         <p className="store-description">{product.description}</p>
         <dl className="store-specs"><div><dt>Категория</dt><dd>{product.category}</dd></div>{product.dimensions && <div><dt>Размеры</dt><dd>{product.dimensions}</dd></div>}{product.scale && <div><dt>Масштаб</dt><dd>{product.scale}</dd></div>}{product.material && <div><dt>Материалы</dt><dd>{product.material}</dd></div>}</dl>
         {(product.ready || product.made) && <>
@@ -46,7 +47,7 @@ export function ProductDetail({ product }: { product: Product }) {
           {mode === "made" && product.requiresSketch && <p>Изготовление начинается после согласования эскиза.</p>}
           {mode === "made" && <div className="store-booking"><BuyerBooking onSelect={setSlot} /><p className="store-small">Срок изготовления мастер согласует после рассмотрения заявки.</p></div>}
         </>}
-        {demo && <p className="store-demo-note">Демонстрационная модель. Фото из музейной коллекции, параметры и цены приведены для примера.</p>}
+        {demo && <p className="store-demo-note">Демонстрационное изделие. Заявка сохраняется только на этом устройстве.</p>}
       </div>
     </div>
     {product.status === "active" && <aside className="store-purchase-bar" aria-label={demo ? "Добавление в корзину" : "Стоимость и избранное"}>

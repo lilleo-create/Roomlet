@@ -1,5 +1,6 @@
 export type Product = {
   slug: string;
+  demo?: boolean;
   number: string;
   title: string;
   category: string;
@@ -29,7 +30,7 @@ export function findProduct(products: readonly Product[], slug: string) {
 
 export function statusLabel(product: Product) {
   if (product.status === "upcoming") return availabilityNames.upcoming;
-  if (product.status === "archive") return availabilityNames.archive;
+  if (product.status === "archive") return "Продан";
   if (product.ready) return availabilityNames.ready;
   return product.made ? availabilityNames.made : "Нет в наличии";
 }

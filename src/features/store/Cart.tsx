@@ -1,6 +1,6 @@
 "use client";
 
-import { Photo } from "./Photo";
+import { Photo } from "@/components/Photo";
 import { ProductPrice } from "./ProductPrice";
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
@@ -17,7 +17,11 @@ export function CartPage({ products }: { products: Product[] }) {
   const [confirmed, setConfirmed] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const total = cart.reduce((sum, line) => sum + (findProduct(products, line.slug)?.priceMinor ?? 0), 0);
+  const totals = new Map<string, number>();
+  for (const line of cart) {
+    const product = findProduct(products, line.slug);
+    if (product) totals.set(product.currency, (totals.get(product.currency) ?? 0) + product.priceMinor);
+  }
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!demo || saving) return;
@@ -60,7 +64,9 @@ export function CartPage({ products }: { products: Product[] }) {
           <div><Link href={`/product/${line.slug}`}>{product.title}</Link><p>{line.mode === "ready" ? "Готовый экземпляр" : `Под заказ · ${line.window}`}</p><ProductPrice product={product} /></div>
           <IconButton label={`Удалить: ${product.title}`} onClick={() => { removeLine(lineKey(line)); setError(""); }}><Trash2 size={17} /></IconButton>
         </article>;})}</div>
-        <p className="store-total"><span>Итого</span><ProductPrice product={{priceMinor: total, currency: "RUB"}} /></p>
+        {totals.size > 0 && <div className="store-total"><span>Итого</span><div className="store-total-amounts">
+          {Array.from(totals, ([currency, priceMinor]) => <ProductPrice key={currency} product={{currency, priceMinor}} />)}
+        </div></div>}
         {checkout ? <form className="store-form" onSubmit={submit}><h2>Демонстрационная заявка</h2>
           <p>Контакт нужен для примера оформления. Он останется только в форме.</p>
           <Input label="Контакт" name="contact" placeholder="Имя пользователя или электронная почта" required maxLength={120} autoComplete="off" />

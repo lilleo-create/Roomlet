@@ -6,11 +6,12 @@ import type { Product } from "./products";
 import { EmptyState } from "@/components/ui";
 
 export function StoreHome({products, demo = false}: {products: readonly Product[]; demo?: boolean}) {
-  if (!products.length) return <section className="store-page"><h1>Интерьеры в миниатюре</h1><EmptyState title="Коллекция готовится к открытию" description="Здесь появятся новые работы мастерской." /></section>;
+  if (!products.length) return <section className="store-page store-empty-hero"><div className="store-page-head"><h1>Интерьеры в&nbsp;миниатюре</h1></div>
+    <EmptyState title="Коллекция готовится к открытию" description="Здесь появятся новые работы мастерской." /></section>;
   return <>
     <FeaturedObject products={products} />
     <section className="store-section"><div className="store-section-head"><h2>Новые работы</h2><Link href="/catalog">Весь каталог <ArrowRight size={16} /></Link></div>
-      <div className="store-grid">{products.slice(0, 3).map(product => <ProductCard key={product.slug} product={product} />)}</div>
+      <div className="store-grid">{products.slice(0, 4).map(product => <ProductCard key={product.slug} product={product} />)}</div>
     </section>
     <section className="store-section"><div className="store-section-head"><h2>Коллекции</h2></div>
       <div className="store-directory">

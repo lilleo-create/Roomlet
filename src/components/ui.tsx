@@ -97,11 +97,11 @@ export function Skeleton({ className, ...props }: ComponentProps<"div">) {
 
 type StateProps = { title: string; description?: string; action?: ReactNode };
 export function EmptyState({ title, description, action }: StateProps) {
-  return <div className="ui-state"><h3>{title}</h3>{description && <p>{description}</p>}{action}</div>;
+  return <div className="ui-state"><h3>{title}</h3>{description && <p>{description}</p>}{action && <div className="ui-state-action">{action}</div>}</div>;
 }
 export function ErrorState({ title, description, action }: StateProps) {
   return <div className="ui-state ui-state-error" role="alert"><AlertCircle size={20} aria-hidden />
-    <h3>{title}</h3>{description && <p>{description}</p>}{action}
+    <h3>{title}</h3>{description && <p>{description}</p>}{action && <div className="ui-state-action">{action}</div>}
   </div>;
 }
 

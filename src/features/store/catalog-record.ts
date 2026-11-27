@@ -6,6 +6,8 @@ export interface CatalogRecord {
   title: string;
   description: string;
   category_name: string | null;
+  catalog_stage?: "active" | "upcoming" | "sold";
+  is_demo?: boolean;
   dimensions: string | null;
   materials: string | null;
   currency: string;
@@ -34,6 +36,7 @@ export function toProduct(row: CatalogRecord): Product {
     dimensions: row.dimensions || "", material: row.materials || "", scale: "",
     priceMinor: row.price_minor, currency: row.currency,
     ready: row.ready_quantity > 0, made: row.made_to_order, requiresSketch: row.requires_sketch,
-    status: "active",
+    status: row.catalog_stage === "upcoming" ? "upcoming" : row.catalog_stage === "sold" ? "archive" : "active",
+    demo: row.is_demo === true,
   };
 }

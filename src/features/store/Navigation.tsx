@@ -20,12 +20,11 @@ export function AppHeader() {
       <nav className="store-desktop-nav" aria-label="Навигация магазина">
         {sections.map(item => <Link key={item.href} href={item.href} aria-current={path === item.href ? "page" : undefined}>{item.title}</Link>)}
       </nav>
-      <div className="store-header-tools">{demo && <span className="store-demo-label">Демо</span>}
-
-        {demo && <Link href="/cart" className="store-bag" aria-label={`Корзина, позиций: ${cart.length}`} aria-current={path === "/cart" ? "page" : undefined}>
+      {demo && <div className="store-header-tools"><span className="store-demo-label">Демо</span>
+        <Link href="/cart" className="store-bag" aria-label={`Корзина, позиций: ${cart.length}`} aria-current={path === "/cart" ? "page" : undefined}>
           <ShoppingBag size={21} />{cart.length > 0 && <span>{cart.length}</span>}
-        </Link>}
-      </div>
+        </Link>
+      </div>}
     </div>
   </header>;
 }
@@ -41,6 +40,5 @@ export function StoreFooter() {
   return <footer className="store-footer"><div>
     <Link className="store-logo" href="/">roomlet<span>.</span></Link>
     <span>{demo ? "Демонстрационная коллекция" : "Коллекционные миниатюры"}</span>
-    <nav aria-label="О проекте"><Link href="/design-system">Дизайн-система</Link></nav>
   </div></footer>;
 }

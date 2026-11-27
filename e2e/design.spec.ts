@@ -1,6 +1,15 @@
 import { expect, test } from "@playwright/test";
+import { signInLocalMaker } from "./local-maker";
 
-test("Диалог удерживает фокус, Escape возвращает его на кнопку", async ({ page }) => {
+test("гость не видит страницу дизайн-системы", async ({ page }) => {
+  const response = await page.goto("/design-system");
+  expect(response?.status()).toBe(404);
+  await expect(page.getByRole("heading", { name: "Дизайн-система", exact: true })).toHaveCount(0);
+  await expect(page.locator("#controls")).toHaveCount(0);
+});
+
+test("Диалог удерживает фокус, Escape возвращает его на кнопку", async ({ page, baseURL }) => {
+  await signInLocalMaker(page, baseURL);
   await page.goto("/design-system");
   const trigger = page.getByRole("button", { name: "Диалог", exact: true });
   await trigger.focus();
@@ -26,7 +35,8 @@ test("Диалог удерживает фокус, Escape возвращает 
 test.describe("Образцы на сенсорном экране", () => {
   test.use({ hasTouch: true, viewport: { width: 320, height: 720 } });
 
-  test("Панель ведёт к календарю, доступна работа с состояниями полей и уведомлением", async ({ page }) => {
+  test("Панель ведёт к календарю, доступна работа с состояниями полей и уведомлением", async ({ page, baseURL }) => {
+    await signInLocalMaker(page, baseURL);
     await page.goto("/design-system");
     const controls = page.locator("#controls");
     const panelButton = controls.getByRole("button", { name: "Нижняя панель" });

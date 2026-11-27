@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { Photo } from "./Photo";
+import { Photo } from "@/components/Photo";
 import { ProductPrice } from "./ProductPrice";
-import { Heart } from "lucide-react";
-import { IconButton, ObjectNumber, StatusTag } from "@/components/ui";
+import { ArrowUpRight, Heart } from "lucide-react";
+import { IconButton, StatusTag } from "@/components/ui";
 import { track } from "@/lib/analytics";
 import { type Product, statusLabel } from "./products";
 import { useStore } from "./StoreProvider";
@@ -18,17 +18,20 @@ export function FavoriteButton({ product }: { product: Product }) {
   </IconButton>;
 }
 
+export function ProductStatus({ product }: { product: Product }) {
+  const tone = product.ready ? "success" : product.status === "upcoming" ? "primary" : "neutral";
+  return <StatusTag tone={tone}>{statusLabel(product)}</StatusTag>;
+}
+
 export function ProductCard({ product }: { product: Product }) {
   const href = `/product/${product.slug}`;
   return <article className="store-card">
     <div className="store-card-visual">
-      <Link href={href} tabIndex={-1} aria-hidden="true">
-        <Photo photo={product.media[0]} sizes="(max-width: 680px) 48vw, 32vw" />
-      </Link>
+      <Photo photo={product.media[0]} sizes="(max-width: 355px) 100vw, (max-width: 960px) 48vw, (max-width: 1199px) 32vw, 25vw" />
       <FavoriteButton product={product} />
     </div>
-    <div className="store-card-meta"><ObjectNumber value={product.number} /><StatusTag tone={product.ready ? "success" : "neutral"}>{statusLabel(product)}</StatusTag></div>
+    <div className="store-card-meta"><ProductStatus product={product} /></div>
     <h3><Link href={href}>{product.title}</Link></h3>
-    {product.status === "active" ? <ProductPrice product={product} /> : <span className="store-small">{product.category}</span>}
+    <div className="store-card-foot"><ProductPrice product={product} /><ArrowUpRight size={18} aria-hidden /></div>
   </article>;
 }

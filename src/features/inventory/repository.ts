@@ -1,4 +1,5 @@
 import "server-only";
+import { localDemoEnabled } from "@/lib/supabase/config";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { imageBucket, type InventoryItem, type ProductStatus, type Category } from "./model";
 
@@ -22,7 +23,7 @@ export function newInventoryItem(currency: string): InventoryItem {
 
 export async function loadInventoryItem(db: SupabaseClient, id: string): Promise<InventoryItem | null> {
   // Pin the version before fetching related rows. A concurrent edit then forces a fresh read on save.
-  const product = await db.from("products").select("id,slug,title,description,category_id,dimensions,materials,status,updated_at").eq("id", id).maybeSingle();
+  const product = await db.from("products").select("*").eq("id", id).maybeSingle();
   if (product.error) throw new Error("Не удалось загрузить изделие.");
   if (!product.data) return null;
   const [offer, costs, media, units] = await Promise.all([
@@ -35,11 +36,12 @@ export async function loadInventoryItem(db: SupabaseClient, id: string): Promise
   if (!offer.data || !costs.data) throw new Error("Данные изделия неполны. Проверьте состояние записи.");
   const rows = media.data || [];
   const paths = rows.map(row => row.storage_path);
-  const urls = paths.length ? await db.storage.from(imageBucket).createSignedUrls(paths, 3600) : null;
+  const local = localDemoEnabled();
+  const urls = paths.length && !local ? await db.storage.from(imageBucket).createSignedUrls(paths, 3600) : null;
   if (urls?.error || urls?.data?.some(row => !row.signedUrl)) throw new Error("Не удалось загрузить фотографии изделия.");
   return {
     ...product.data, status: product.data.status as ProductStatus, ...offer.data, ...costs.data,
     ready_quantity: units.count ?? 0,
-    media: rows.map((row, i) => ({...row, alt_text: row.alt_text || "", url: urls?.data?.[i]?.signedUrl || ""})),
+    media: rows.map((row, i) => ({...row, alt_text: row.alt_text || "", url: local ? "/studio/media/" + row.storage_path : urls?.data?.[i]?.signedUrl || ""})),
   };
 }

@@ -23,6 +23,7 @@
 .ui-btn--secondary:enabled:hover, .ui-btn--quiet:enabled:hover, .ui-icon-btn:enabled:hover { background: var(--border); }
 .ui-btn--danger { background: var(--error); color: white; }
 .ui-btn:disabled, .ui-icon-btn:disabled { opacity: .52; }
+.ui-photo-placeholder { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: var(--space-2); background: var(--surface); color: var(--muted); font: var(--caption); border: 1px solid var(--border); border-radius: inherit; }
 .ui-icon-btn {
   width: var(--touch-target);
   flex: 0 0 var(--touch-target);
@@ -58,6 +59,7 @@ textarea.ui-control { resize: vertical; min-height: 96px; }
 .ui-object-number, .ui-tag { font: var(--caption); }
 .ui-object-number { color: var(--muted); letter-spacing: .06em; font-variant-numeric: tabular-nums; }
 .ui-tag {
+  max-width: 100%; overflow-wrap: anywhere;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -74,7 +76,12 @@ textarea.ui-control { resize: vertical; min-height: 96px; }
 .ui-state, .ui-order { padding: var(--space-5); border: 1px solid var(--border); background: var(--surface); }
 .ui-state h3, .ui-order h3 { margin: 0; font: var(--h3); }
 .ui-state p, .ui-order p, .ui-step p { margin: var(--space-1) 0 0; color: var(--muted); font: var(--small); }
-.ui-state > .ui-btn { margin-top: var(--space-4); }
+.ui-state { min-width: 0; padding: clamp(20px, 3vw, 40px); border-width: 1px 0; }
+.ui-state h3 { max-width: 34ch; overflow-wrap: anywhere; text-wrap: balance; }
+.ui-state p { max-width: 52ch; line-height: 1.55; margin-top: var(--space-2); }
+.ui-state-action { margin-top: var(--space-4); }
+.ui-state-action a:not([class]) { display: inline-flex; align-items: center; min-height: var(--touch-target); color: var(--primary-hover); text-decoration: underline; }
+.ui-state-error { border-top-color: var(--error); }
 .ui-state-error > svg { color: var(--error); margin-bottom: 8px; }
 .ui-skeleton { height: 1.2em; width: 100%; border-radius: var(--radius-tag); background: var(--border); animation: ui-pulse 1.4s ease-in-out infinite alternate; }
 @keyframes ui-pulse { to { opacity: .52; } }
@@ -114,7 +121,7 @@ textarea.ui-control { resize: vertical; min-height: 96px; }
 .ui-dialog::backdrop { background: rgb(21 21 21 / 48%); }
 .ui-dialog-heading, .ui-order-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .ui-dialog-heading { margin-bottom: var(--space-4); }
-.ui-dialog-heading h2 { font: var(--h2); margin: 0; }
+.ui-dialog-heading h2 { overflow-wrap: anywhere; min-width: 0; font: var(--h2); margin: 0; }
 .ui-sheet { position: fixed; inset: auto 0 0; width: min(100%, 580px); margin: 0 auto; max-height: 90dvh; padding-bottom: calc(var(--space-6) + env(safe-area-inset-bottom, 0px)); border-radius: 16px 16px 0 0; }
 .ui-sheet[open] { animation: ui-sheet-enter var(--motion-sheet) ease-out; }
 @keyframes ui-dialog-enter { from { opacity: 0; transform: translateY(6px); } }

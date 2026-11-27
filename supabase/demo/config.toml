@@ -1,0 +1,28 @@
+project_id = "roomlet-local-demo"
+
+[api]
+enabled = true
+port = 54331
+schemas = ["public"]
+
+[db]
+driver = "pglite"
+url = ".roomlet-demo/database"
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1:3211"
+enable_signup = true
+jwt_secret = "env(ROOMLET_DEMO_JWT_SECRET)"
+publishable_key = "env(ROOMLET_DEMO_PUBLISHABLE_KEY)"
+secret_key = "env(ROOMLET_DEMO_SERVICE_KEY)"
+
+[auth.email]
+enable_signup = true
+enable_confirmations = false
+
+[storage]
+enabled = true
+
+[studio]
+enabled = false

@@ -11,8 +11,13 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "next typegen && tsc --noEmit",
-    "test": "node --experimental-strip-types --experimental-test-isolation=none --test tests/*.test.ts",
-    "test:e2e": "playwright test"
+    "test": "node --experimental-strip-types --experimental-test-isolation=none --test tests/*.test.ts tests/*.test.mjs",
+    "test:e2e": "playwright test",
+    "demo:dev": "node supabase/demo/runtime.mjs dev",
+    "demo:seed": "node supabase/demo/runtime.mjs seed",
+    "demo:clean": "node supabase/demo/runtime.mjs clean",
+    "demo:build": "node --import ./supabase/demo/build-env.mjs node_modules/next/dist/bin/next build --webpack",
+    "predemo:dev": "npm run demo:build"
   },
   "dependencies": {
     "@fontsource-variable/golos-text": "5.3.0",
@@ -27,7 +32,9 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.6.0",
+    "@hono/node-server": "1.19.19",
     "@playwright/test": "1.65.1",
+    "@supabase/lite": "0.11.0",
     "@tailwindcss/postcss": "4.3.5",
     "@types/node": "^22",
     "@types/react": "^19",

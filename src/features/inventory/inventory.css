@@ -1,5 +1,8 @@
 .inventory { max-width: 960px; min-width: 0; }
-.inventory h1 { overflow-wrap: anywhere; font: var(--h1); }
+.inventory h1 { overflow-wrap: anywhere; text-wrap: pretty; }
+.inventory > .rs-demo { display: inline-block; margin-top: var(--space-3); }
+.inventory > form { max-width: 760px; }
+.inventory .rs-page-title > a { margin: 0; }
 .inventory-back, .inventory-pages a { display:inline-flex; align-items:center; min-height:44px; color:var(--primary-hover); }
 .inventory-fields { min-inline-size:0; padding:0; margin:0; border:0; }
 .inventory section { display:grid; gap:16px; padding:24px 0; border-bottom:1px solid var(--border); }
@@ -11,16 +14,18 @@
 .inventory .ui-dialog .ui-btn { margin-top:12px; }
 .inventory .inventory-pair { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
 .inventory .inventory-category { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; align-items:end; }
+.inventory-gallery:empty { display: none; }
 .inventory-gallery { display:grid; grid-template-columns:repeat(auto-fill,minmax(min(180px,100%),1fr)); gap:16px; }
 .inventory-photo { min-width:0; }
-.inventory-photo > img { display:block; width:100%; height:150px; object-fit:cover; border-radius:var(--radius-image); }
-.inventory-photo > div:first-of-type { display:flex; align-items:center; justify-content:flex-end; }
-.inventory-photo > div:first-of-type span { margin-right:auto; font:var(--caption); }
+.inventory-photo-preview { position:relative; width:100%; aspect-ratio:var(--product-photo-ratio); overflow:hidden; border-radius:var(--radius-image); }
+.inventory-photo-preview img { object-fit:cover; }
+.inventory-photo-tools { display:flex; align-items:center; justify-content:flex-end; }
+.inventory-photo-tools span { margin-right:auto; font:var(--caption); }
 .inventory-upload, .inventory-check { display:flex; gap:10px; align-items:center; min-height:44px; cursor:pointer; }
 .inventory-upload { position:relative; justify-self:start; border:1px solid var(--muted); border-radius:var(--radius-control); padding:0 16px; }
 .inventory-upload input { position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; }
 .inventory-upload:focus-within { outline:3px solid var(--primary); outline-offset:2px; }
-.inventory-check input { width:18px; height:18px; accent-color:var(--primary); }
+.inventory-check input { flex: none; width:18px; height:18px; accent-color:var(--primary); }
 .inventory-note,.inventory-error { margin:16px 0; font:var(--small); }
 .inventory-note { color:var(--success); }
 .inventory-error { color:var(--error); }
