@@ -15,6 +15,7 @@ const product = {
   dimensions: "5 × 7 см", materials: "Берёза", currency: "EUR", price_minor: 2499,
   ready_quantity: 1, made_to_order: true, requires_sketch: false, media: [],
 };
+let collection;
 let published = false;
 let fail = false;
 const webp = Buffer.from("UklGRiIAAABXRUJQVlA4IBYAAAAwAQCdASoBAAEAAUAmJaQAA3AA/v89WAAAAA==", "base64");
@@ -39,6 +40,11 @@ const backend = createServer((req, res) => {
   if (req.headers.apikey !== key) return json(401, { message: "Expected a local publishable key" });
   if (url.pathname === "/rest/v1/rpc/roomlet_catalog") {
     if (fail) return json(503, { message: "Backend unavailable" });
+    if (collection) {
+      const offset = Number(url.searchParams.get("offset") ?? 0);
+      const limit = Number(url.searchParams.get("limit") ?? 100);
+      return json(200, collection.slice(offset,offset + limit));
+    }
     const slug = url.searchParams.get("slug");
     return json(200, published && (!slug || slug === "eq." + product.slug) ? [product] : []);
   }
@@ -127,6 +133,16 @@ try {
   assert.doesNotMatch(await html("/product/stolik"), /Столик Пион/);
   assert.equal((await get("/catalog-media/" + id + "/" + newCover)).status, 404);
 
+  // Exercise the public home collection across the RPC page boundary.
+  for (const count of [0, 1, 2, 105]) {
+    collection = Array.from({length:count}, (_, index) => ({
+      ...product, id:crypto.randomUUID(), slug:"room-"+index, title:"Комната "+index,
+    }));
+    const home = await html("/");
+    assert.equal((home.match(/data-work="/g) || []).length, count);
+    assert.equal(home.includes('aria-label="Следующая работа"'), count > 1);
+  }
+  collection = undefined;
   fail = true;
   const broken = await html("/catalog");
   assert.doesNotMatch(broken, /Столик Пион|Библиотека-ротонда|Готовим новые миниатюры/);

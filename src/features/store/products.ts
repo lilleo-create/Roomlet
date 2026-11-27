@@ -1,4 +1,5 @@
 export type Product = {
+  id?: string;
   slug: string;
   demo?: boolean;
   number: string;
@@ -44,4 +45,10 @@ export function filterProducts(products: readonly Product[], query: string, cate
       && (availability === "all" || (availability === "ready" && product.ready)
         || (availability === "made" && product.made) || product.status === availability);
   });
+}
+
+export function availabilityOrder(product: Product) {
+  if (product.status === "active" && product.ready) return 0;
+  if (product.status === "active" && product.made) return 1;
+  return product.status === "upcoming" ? 2 : 3;
 }

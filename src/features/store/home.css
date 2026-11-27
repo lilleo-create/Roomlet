@@ -1,0 +1,56 @@
+
+.home-composition { display:grid; gap:48px; min-width:0; padding-bottom:32px; }
+.home-composition > * { min-width:0; }
+.home-composition .store-hero { grid-template-areas:"title photo" "cta photo"; gap:18px 48px; }
+.home-composition .store-hero-copy { grid-area:title; align-self:end; }
+.home-composition .store-hero-piece { grid-area:photo; margin:0; }
+.home-composition .home-hero-cta { grid-area:cta; align-self:start; justify-self:start; padding-inline:28px; }
+.home-collections { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+.home-collections a { display:grid; gap:10px; font:650 clamp(17px,2.2vw,30px)/1.25 var(--font-display); letter-spacing:-.035em; }
+.home-category-photo,.home-project-photo { display:block; position:relative; overflow:hidden; border-radius:var(--radius-image); }
+.home-category-photo { aspect-ratio:2.5; }
+.home-composition img { object-fit:cover; }
+.home-project { display:grid; grid-template-columns:1fr 1fr; gap:clamp(24px,4vw,64px); align-items:center; }
+.home-project-photo { aspect-ratio:1.8; }
+.home-project p { margin:12px 0 18px; line-height:1.5; max-width:37ch; }
+.home-project a { display:inline-flex; align-items:center; min-height:44px; border:1px solid var(--ink); border-radius:var(--radius-image); padding:0 20px; font-weight:600; }
+.home-archive { justify-self:start; color:var(--muted); text-decoration:underline!important; text-underline-offset:4px; min-height:44px; }
+.home-workshop-head,.home-workshop-controls { display:flex; align-items:center; justify-content:space-between; }
+.home-workshop-head { margin-bottom:18px; }
+.home-workshop-controls button { width:44px; height:44px; display:grid; place-items:center; border:0; color:var(--ink); background:transparent; }
+.home-workshop .workshop-track { touch-action:pan-y pinch-zoom; }
+.workshop-track .store-card { height:100%; border:0; padding:0 0 6px; }
+.workshop-track .store-card-foot > svg { display:none; }
+.workshop-track .store-card-visual { aspect-ratio:1.32; }
+.workshop-track .keen-slider__slide { padding:3px; }
+.home-composition .store-hero-photo { touch-action:pan-y pinch-zoom; }
+@media(max-width:760px){
+  .roomlet-store:has(.home-composition) .store-header { border-bottom:0; }
+  .roomlet-store:has(.home-composition) .store-header-in { min-height:52px; }
+  .roomlet-store:has(.home-composition) .store-footer { display:none; }
+  .home-composition { gap:44px; padding-bottom:20px; }
+  .home-composition .store-hero { grid-template-columns:minmax(0,1fr); grid-template-areas:"title" "photo" "cta"; gap:12px; padding-top:14px; }
+  .home-composition .store-hero-title { font-size:clamp(38px,10.5vw,52px); }
+  .home-composition .store-hero-photo { aspect-ratio:1.34; }
+  .home-composition .home-hero-cta { justify-self:stretch; }
+  .home-collections { gap:12px; }
+  .home-category-photo { aspect-ratio:1.2; }
+  .home-workshop-controls { display:none; }
+  .home-project { grid-template-columns:minmax(0,1fr); gap:18px; }
+  .home-project-photo { aspect-ratio:1.55; }
+  .composition-b .store-hero-copy { align-items:center; text-align:center; }
+  .composition-b .store-hero-piece { position:relative; }
+  .composition-b .store-hero-photo { aspect-ratio:1.08; }
+  .composition-b .store-hero-caption { position:absolute; inset:auto 0 0; padding:22px 10px 4px; color:white; background:linear-gradient(transparent,rgba(0,0,0,.8)); pointer-events:none; }
+  .composition-b .store-hero-caption > * { pointer-events:auto; }
+  .composition-b .store-carousel-tools button { color:white; }
+  .composition-b .home-collections a { position:relative; color:white; }
+  .composition-b .home-category-photo { aspect-ratio:.95; }
+  .composition-b .home-collections a > span:last-child { position:absolute; inset:auto 0 0; padding:22px 10px 10px; background:linear-gradient(transparent,rgba(0,0,0,.76)); }
+  .composition-b .home-project { gap:0; background:var(--surface); }
+  .composition-b .home-project > div:last-child { padding:20px; }
+}
+@media(prefers-reduced-motion:no-preference){
+  .home-composition .store-hero-photo img { animation:home-picture-in .24s ease-out; }
+  @keyframes home-picture-in { from { opacity:.65; } to { opacity:1; } }
+}

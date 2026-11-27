@@ -68,6 +68,40 @@ test("на узком телефоне главный объект виден д
   await expect(caption).not.toHaveAttribute("href", first!);
   await page.getByRole("button", { name: "Предыдущий объект" }).click();
   await expect(caption).toHaveAttribute("href", first!);
+
+  const workshop = page.getByRole("group", { name: "Работы мастерской" });
+  const slides = workshop.locator("[data-work]");
+  const ids = await slides.evaluateAll(items => items.map(item => item.getAttribute("data-work")));
+  expect(new Set(ids).size).toBe(ids.length);
+  const leading = () => slides.evaluateAll(items => {
+    if (!items.length) return null;
+    const left = items[0].parentElement!.getBoundingClientRect().left;
+    return items.find(item => Math.abs(item.getBoundingClientRect().left - left) < 1)?.getAttribute("data-work");
+  });
+  await workshop.press("ArrowLeft");
+  await expect.poll(leading).toBe(ids.at(-1));
+  await workshop.press("ArrowRight");
+  await expect.poll(leading).toBe(ids[0]);
+
+  // Chromium touch input exercises the same drag recognizer as a phone.
+  const cdp = await page.context().newCDPSession(page);
+  await workshop.scrollIntoViewIfNeeded();
+  const rect = (await workshop.boundingBox())!;
+  const y = Math.round(rect.y + 55);
+  const x = Math.round(rect.x + rect.width * 0.65);
+  const distance = Math.round(rect.width * 0.52);
+  await cdp.send("Input.dispatchTouchEvent", { type:"touchStart", touchPoints:[{x,y}] });
+  for (let step = 1; step <= 8; step++) {
+    await cdp.send("Input.dispatchTouchEvent", { type:"touchMove", touchPoints:[{x:x-distance*step/8,y}] });
+  }
+  await cdp.send("Input.dispatchTouchEvent", { type:"touchEnd", touchPoints:[] });
+  await cdp.detach();
+  await expect.poll(leading).toBe(ids[1]);
+  await expect(page).toHaveURL(/\/$/);
+  await slides.nth(1).getByRole("link").click();
+  await expect(page).toHaveURL(/\/product\//);
+  await page.goBack();
+  await expect.poll(leading).toBe(ids[1]);
 });
 
 test("карточка остаётся читаемой при недоступной фотографии", async ({ page }) => {
@@ -88,7 +122,7 @@ test("публичные страницы не содержат ссылок в 
 test("мобильная лента фильтров прокручивается в одну строку и открывает нужные работы", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 568 });
   await openDemo(page, "/");
-  await page.getByRole("link", { name: /Сделаем на.заказ/ }).click();
+  await page.getByRole("link", { name: "Под заказ", exact: true }).click();
   const rail = page.getByRole("group", { name: "Доступность" });
   await expect(rail.getByRole("button", { name: "Под заказ" })).toHaveAttribute("aria-pressed", "true");
   const geometry = await rail.evaluate(row => ({

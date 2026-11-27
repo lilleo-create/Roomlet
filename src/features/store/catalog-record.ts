@@ -28,7 +28,7 @@ export function isCatalogPhotoPath(path: string) {
 export function toProduct(row: CatalogRecord): Product {
   const media = row.media.filter(item => isCatalogPhotoPath(item.storage_path) && item.storage_path.startsWith(row.id + "/"));
   return {
-    slug: row.slug, number: row.id.slice(0, 8).toUpperCase(), title: row.title,
+    id: row.id, slug: row.slug, number: row.id.slice(0, 8).toUpperCase(), title: row.title,
     description: row.description, category: row.category_name || "Без категории",
     media: [...media].sort((a, b) => a.sort_order - b.sort_order).map(item => ({
       src: "/catalog-media/" + item.storage_path, alt: item.alt_text || row.title,
