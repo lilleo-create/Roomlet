@@ -19,11 +19,12 @@ const ownerUser={id:'bce30769-a1bf-4ba4-b02c-3b1fa2655190',aud:'authenticated',r
   email_confirmed_at:new Date().toISOString(),
   app_metadata:{provider:'email',providers:['email']},user_metadata:{},identities:[]};
 const fixtureIssuedAt=Math.floor(Date.now()/1000);
-const tokenFor=user=>jsonPart({alg:'HS256'})+'.'+jsonPart({sub:user.id,exp:fixtureIssuedAt+3600,amr:[{method:'password',timestamp:fixtureIssuedAt}]})+'.ZmFrZQ';
+const tokenFor=user=>jsonPart({alg:'HS256'})+'.'+jsonPart({sub:user.id,session_id:'70de250f-793d-4888-9cdd-4218a5207c0f',exp:fixtureIssuedAt+3600,amr:[{method:'password',timestamp:fixtureIssuedAt}]})+'.ZmFrZQ';
 const sessionFor=user=>({access_token:tokenFor(user),refresh_token:'fixture-refresh',token_type:'bearer',expires_in:3600,user});
 const receipts=new Set(),sent=[];
 let emailGateState={};
 let verifiedEmail=false;
+let disconnectTesting=false,disconnectCount=0,disconnectPrepared=false,staleTelegramMapping=false;
 const realFetch=globalThis.fetch;
 globalThis.fetch=async(input,options)=>{
   if(String(input).startsWith('https://api.telegram.org/')) {
@@ -57,11 +58,31 @@ const backend=createServer(async(req,res)=>{
     return json(200,sessionFor(fixtureUser));
   }
   if(req.url==='/auth/v1/user') return json(200,currentUser);
-  if(req.url==='/auth/v1/token?grant_type=password') return json(200,sessionFor(ownerUser));
+  if(req.url==='/auth/v1/token?grant_type=password') {
+    if(disconnectTesting && JSON.parse(body).password!=='fixture-password') return json(400,{code:'invalid_credentials',msg:'Invalid credentials'});
+    return json(200,sessionFor(ownerUser));
+  }
+  if(req.url.startsWith('/auth/v1/user/identities/') && req.method==='DELETE') {
+    if(!disconnectPrepared) return json(403,{code:'fresh_auth_required',msg:'Fresh authentication required'});
+    const identity=req.url.split('/').at(-1);
+    ownerUser.identities=ownerUser.identities.filter(i=>i.identity_id!==identity);
+    disconnectCount++;disconnectPrepared=false;return json(200,{});
+  }
   if(req.url==='/auth/v1/token?grant_type=refresh_token') return json(200,sessionFor(ownerUser));
   if(req.url.startsWith('/auth/v1/logout')) return json(200,{});
   if(req.url.startsWith('/rest/v1/profiles?')) return json(200,{display_name:'Test',role:currentUser.id===ownerUser.id?'owner':'customer',contact_email:null,contact_phone:null});
   if(req.url==='/rest/v1/rpc/roomlet_telegram_account_merged') return json(200,transferred && JSON.parse(body).p_user_id===customer);
+  if(req.url==='/rest/v1/rpc/roomlet_telegram_detached') return json(200,false);
+  if(req.url==='/rest/v1/rpc/roomlet_telegram_account') return json(200,staleTelegramMapping?null:transferred?ownerUser.id:customer);
+  if(req.url==='/rest/v1/rpc/roomlet_login_methods') return json(200,{email_ready:JSON.parse(body).p_user===ownerUser.id,telegram_ready:true});
+  if(req.url==='/rest/v1/rpc/roomlet_prepare_disconnect') {
+    assert.equal(req.headers.apikey,'private-fixture-key');
+    const input=JSON.parse(body);
+    const validTelegram=input.p_identity==='6e0cbbdb-b46b-4de3-8b03-43191e2715dc' && input.p_retained==='9cb60a87-3841-4771-a449-310305bd437a';
+    const validEmail=input.p_identity==='9cb60a87-3841-4771-a449-310305bd437a' && input.p_retained==='6e0cbbdb-b46b-4de3-8b03-43191e2715dc' && stored.has(input.p_proof);
+    if(input.p_user!==ownerUser.id || !(validTelegram || validEmail)) return json(403,{code:'42501',message:'Invalid proof'});
+    disconnectPrepared=true;return json(200,null);
+  }
   if(req.url==='/rest/v1/rpc/roomlet_telegram_link_conflict') {
     const input=JSON.parse(body); assert.equal(req.headers.apikey,'private-fixture-key');
     assert.ok(stored.has(input.p_proof_hash)); return json(200,input.p_telegram_id==='12345' && !transferred);
@@ -300,6 +321,10 @@ try {
   assert.equal(transferred,true);
   const afterTransfer=await fetch(base+'/api/telegram/session',{method:'POST',headers:{origin:issuer,'x-roomlet-intent':'login',cookie:sessionCookie},body:mergeLaunch('reopen-after-transfer')});
   assert.deepEqual(await afterTransfer.json(),{result:'signed-in'},'An old customer cookie must be replaced after an explicitly confirmed transfer');
+  staleTelegramMapping=true;
+  const racedLogin=await fetch(base+'/api/telegram/session',{method:'POST',headers:{origin:issuer,'x-roomlet-intent':'login'},body:mergeLaunch('login-raced-with-unlink')});
+  assert.equal(racedLogin.status,409);assert.deepEqual(await racedLogin.json(),{result:'detached'});
+  staleTelegramMapping=false;
   const transferredCookies=afterTransfer.headers.getSetCookie().filter(value=>value.startsWith('__Host-roomlet-mini=') && !value.startsWith('__Host-roomlet-mini=;')).map(value=>value.split(';')[0]).join('; ');
   const transferredProfile=await (await fetch(base+'/profile/settings',{headers:{cookie:transferredCookies}})).text();
   assert.ok(transferredProfile.includes(ownerUser.id),'Telegram signs into the original owner UUID after transfer');
@@ -321,6 +346,57 @@ try {
   assert.equal((await fetch(base+'/api/telegram/login',{method:'POST',headers:{origin:'https://evil.example'},redirect:'manual'})).status,403);
   const invalidCallback=await fetch(base+'/api/telegram/login/callback?code=invalid&state=invalid',{redirect:'manual'});
   assert.equal(new URL(invalidCallback.headers.get('location')).pathname,'/profile/login');
+  if(process.argv.includes('--verify-link-form')) {
+    disconnectTesting=true;
+    ownerUser.identities=[
+      {id:ownerUser.id,identity_id:'9cb60a87-3841-4771-a449-310305bd437a',user_id:ownerUser.id,provider:'email',identity_data:{sub:ownerUser.id,email:ownerUser.email}},
+      {id:'tg:12345',identity_id:'6e0cbbdb-b46b-4de3-8b03-43191e2715dc',user_id:ownerUser.id,provider:'custom:roomlet-telegram',identity_data:{sub:'tg:12345'}},
+    ];
+    const {chromium,expect}=await import('@playwright/test');
+    const {mkdir}=await import('node:fs/promises');
+    await mkdir('.roomlet-demo/verify-disconnect',{recursive:true});
+    const browser=await chromium.launch({headless:true,...(process.platform==='win32'?{channel:'chrome'}:{})});
+    try {
+      const page=await browser.newPage({viewport:{width:390,height:844},extraHTTPHeaders:{cookie:ownerCookie}});
+      await page.goto(base+'/profile/settings');
+      await page.getByRole('button',{name:'Отключить Telegram',exact:true}).click();
+      const dialog=page.getByRole('dialog');
+      const consent=dialog.getByRole('checkbox',{name:'Подтверждаю отключение'});
+      const submit=dialog.getByRole('button',{name:'Отключить',exact:true});
+      await expect(submit).toBeDisabled();
+      for(const width of [320,360,390,430,768,1440]) {
+        await page.setViewportSize({width,height:844});
+        assert.ok(await dialog.evaluate(el=>el.getBoundingClientRect().left>=0&&el.getBoundingClientRect().right<=innerWidth));
+        assert.ok(await dialog.evaluate(el=>Math.abs(el.getBoundingClientRect().left+el.getBoundingClientRect().width/2-innerWidth/2)<2),'Dialog must be centered');
+        await page.screenshot({path:'.roomlet-demo/verify-disconnect/modal-'+width+'.png',animations:'disabled'});
+      }
+      await page.setViewportSize({width:390,height:844});
+      await consent.check();await expect(submit).toBeDisabled();
+      await dialog.getByLabel('Пароль',{exact:true}).fill('wrong-password');
+      await expect(submit).toBeEnabled();await submit.click();
+      await expect(dialog.getByRole('alert')).toContainText('Не удалось подтвердить пароль');
+      assert.equal(disconnectCount,0);
+      await expect(consent).not.toBeChecked();await expect(submit).toBeDisabled();
+      // Use the actual Server Action form after an error. Missing consent still
+      // fails server-side even if a caller bypasses the disabled HTML button.
+      const html=await dialog.locator('form').evaluate(form=>form.outerHTML);
+      const form=actionForm(html);form.set('method','telegram');form.set('password','fixture-password');
+      const post=()=>fetch(base+'/profile/settings',{method:'POST',headers:{origin:base,cookie:ownerCookie},body:form,redirect:'manual'});
+      await post();assert.equal(disconnectCount,0);
+      form.set('confirm','yes');
+      const removed=await post();assert.equal(removed.status,303);
+      assert.ok(removed.headers.get('location').includes('disconnected=telegram'));
+      assert.equal(disconnectCount,1);assert.equal(ownerUser.identities.length,1);
+      ownerUser.identities.push({id:'tg:12345',identity_id:'6e0cbbdb-b46b-4de3-8b03-43191e2715dc',user_id:ownerUser.id,provider:'custom:roomlet-telegram',identity_data:{sub:'tg:12345'}});
+      form.set('method','email');form.set('initData',mergeLaunch('detach-email-mini'));
+      const emailRemoved=await post();assert.equal(emailRemoved.status,303);
+      assert.ok(emailRemoved.headers.get('location').includes('/profile/settings?disconnected=email'));
+      assert.ok(emailRemoved.headers.getSetCookie().some(value=>value.startsWith('__Host-roomlet-mini=base64-')),'Mini App gets a fresh remaining-method session');
+      assert.equal(disconnectCount,2);assert.equal(ownerUser.identities.length,1);
+      assert.equal(ownerUser.identities[0].provider,'custom:roomlet-telegram');
+      console.log('PASS: actual settings modal at six widths, disabled/consent/password/error states, native unlink via Server Action');
+    } finally {await browser.close();disconnectTesting=false;}
+  }
   console.log("PASS: discovery, JWKS, same-origin, signature, link guard, native ID-token exchange, SSR cookie and replay");
   console.log('PASS: webhook secret, duplicate command, catalog button, OIDC PKCE redirect, secure cookie and callback guard');
 } catch(error) {

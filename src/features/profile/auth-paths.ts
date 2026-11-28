@@ -1,5 +1,5 @@
 export type AuthMode = "login" | "register" | "forgot" | "recover" | "confirm";
-export type AuthQuery = { next?: string; code?: string; sb_flow_id?: string; local_proof?: string; error_code?: string; success?: string; error?: string; telegram?:string };
+export type AuthQuery = { next?: string; code?: string; sb_flow_id?: string; local_proof?: string; error_code?: string; success?: string; error?: string; telegram?:string;disconnected?:string };
 
 const storePages = new Set(["/", "/mini/link", "/profile/telegram", "/profile/email", "/profile", "/profile/orders", "/profile/settings", "/profile/notifications", "/catalog", "/cart", "/favorites", "/custom"]);
 export function authDestination(value: unknown): string {

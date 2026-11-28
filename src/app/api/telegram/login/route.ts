@@ -31,6 +31,15 @@ export async function POST(request:Request) {
   try {
     const config=webTelegramConfig();
     if(request.headers.get('origin')!==config.origin) return new Response(null,{status:403});
+    const form=request.headers.get('content-type')?.includes('form')?await request.formData():new FormData();
+    if(form.get('intent')==='disconnect-email') {
+      if(form.get('confirm')!=='yes' || request.headers.get('sec-fetch-dest')==='iframe') return new Response(null,{status:403});
+      const client=await createRoomletClient();
+      const {data:{user},error}=await client.auth.getUser();
+      if(error || !user || !user.identities?.some(i=>i.provider==='custom:roomlet-telegram'))
+        return NextResponse.redirect(new URL('/profile/settings?disconnect=error',config.origin),303);
+      return start(config,createWebFlow('disconnect-email',user.id,'/profile/settings'));
+    }
     if(request.headers.get('sec-fetch-dest')==='iframe')
       return NextResponse.redirect(new URL('/mini/link',config.origin),303);
     const client=await createRoomletClient();

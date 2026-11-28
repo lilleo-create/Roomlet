@@ -8,6 +8,7 @@ import { exchangeTelegram } from '@/lib/telegram/exchange.server';
 import { authDestination } from '@/features/profile/auth-paths';
 import { telegramFailure, telegramTrace } from '@/lib/telegram/diagnostics.server';
 import { telegramRequest } from '@/lib/telegram/transport';
+import { disconnectEmailWithTelegram } from '@/features/profile/disconnect.server';
 
 export async function GET(request:Request) {
   const jar=await cookies();
@@ -26,6 +27,7 @@ export async function GET(request:Request) {
     trace=flow.trace??trace;
     telegramTrace(trace,'callback-state');
     destination=flow.intent==='link'?'/profile/telegram?error=callback':destination;
+    if(flow.intent==='disconnect-email') destination='/profile/settings?disconnect=error';
     stage='session';
     const client=await createRoomletClient();
     const {data:{user}}=await client.auth.getUser();
@@ -45,11 +47,21 @@ export async function GET(request:Request) {
     stage='verify-token';
     const launch=await verifyTelegramToken(tokens.id_token,config.clientId,flow.nonce,undefined,verified=>telegramTrace(trace,verified));
     stage='exchange-session';
+    if(flow.intent==='disconnect-email') {
+      stage='disconnect-email';
+      const resumed=await disconnectEmailWithTelegram(launch,flow.accountId!);
+      telegramTrace(trace,'email-disconnected');
+      const response=NextResponse.redirect(new URL(resumed?'/profile/settings?disconnected=email':'/profile/login?next=/profile/settings&disconnected=email',origin),303);
+      response.headers.set('Cache-Control','private, no-store');
+      response.headers.set('Referrer-Policy','no-referrer');
+      return response;
+    }
     const result=await exchangeTelegram(launch,flow.intent,flow.accountId,false,flow.allowTransfer===true,trace);
     telegramTrace(trace,'callback-result-'+result.result,result.status===200?'ok':result.result==='merge-required'?'required':'rejected');
     if(result.status===200) destination=flow.intent==='link'?'/profile/settings?telegram=linked':authDestination(flow.next);
     else if(result.result==='reauth') destination='/profile/login?next=/profile/telegram';
     else if(result.result==='conflict') destination='/profile/settings?telegram=conflict';
+    else if(result.result==='detached') destination='/profile/login?disconnected=telegram';
     else if(result.result==='merge-required') destination='/profile/telegram?confirm=merge';
     else if(flow.intent==='link') destination='/profile/telegram?error='+encodeURIComponent(result.result);
   } catch (error) {

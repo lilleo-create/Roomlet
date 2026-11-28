@@ -29,9 +29,10 @@ function hasMailError() {
   return params.has("error") || params.has("error_code");
 }
 
-export function EmailForm({ mode, next, code, localProof, flowId, recovered, demo, invalidLink, miniAvailable, telegramError, documents }: {
+export function EmailForm({ mode, next, code, localProof, flowId, recovered, demo, invalidLink, miniAvailable, telegramError, documents,disconnected }: {
   mode: AuthMode; next: string; code?: string; localProof?: string; flowId?: string; recovered: boolean; demo: boolean; invalidLink: boolean; miniAvailable: boolean; telegramError?:boolean;
   documents: RegistrationDocuments | null;
+  disconnected?:'email'|'telegram';
 }) {
   const [state, action, pending] = useActionState(submitEmail, initial);
   const telegram = useTelegramSession();
@@ -54,7 +55,11 @@ export function EmailForm({ mode, next, code, localProof, flowId, recovered, dem
   const back = mode === "login" ? "/profile" : authHref(mode === "recover" ? "forgot" : "login", next);
   const backLabel = mode === "login" ? "Мой профиль" : mode === "recover" ? "Восстановление пароля" : "Ко входу";
   const linking = ["/mini/link","/profile/telegram"].includes(next);
-  if (telegram.mini && !linking && (mode === "login" || mode === "register"))
+  if(telegram.mini && disconnected==='email') return <section className="account-page">
+    <h1>Почта отключена</h1><p>Ваш профиль сохранён. Закройте Roomlet и откройте его снова из бота, чтобы войти через Telegram.</p>
+    <a className="account-text-link" href="https://t.me/roomlet_shop_bot">Открыть бота Roomlet</a>
+  </section>;
+  if (telegram.mini && !linking && disconnected!=='telegram' && telegram.status!=='detached' && (mode === "login" || mode === "register"))
     return <section className="account-page"><TelegramSessionStatus /></section>;
 
   return <section className="account-page">
@@ -86,6 +91,7 @@ export function EmailForm({ mode, next, code, localProof, flowId, recovered, dem
         </div>}
         {telegramError && <p className="account-error" role="alert">Вход через Telegram не завершён. Попробуйте ещё раз или войдите по почте.</p>}
         {recovered && <p className="account-notice" role="status">Пароль изменён. Войдите с новым паролем.</p>}
+        {(disconnected || telegram.status==='detached') && <p className="account-notice" role="status">{disconnected==='email'?'Почта отключена. Войдите через Telegram.':'Telegram отключён. Войдите с почтой и паролем.'} Ваш профиль сохранён.</p>}
         {(invalidLink || expiredFragment) && <p className="account-error" role="alert">Ссылка недействительна или истекла. Запросите новое письмо.</p>}
         {mode === "recover" && !code && !demo ? <p className="account-notice">Откройте ссылку восстановления из письма в том же браузере.</p> : <form className="account-form" action={action} aria-busy={pending}
           onInput={event => setValid(event.currentTarget.checkValidity())} onChange={event => setValid(event.currentTarget.checkValidity())} onReset={() => setValid(false)}>

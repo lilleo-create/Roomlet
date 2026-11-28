@@ -33,6 +33,11 @@ export async function exchangeTelegram(launch:TelegramLaunch,intent:'login'|'lin
     record('link-permission-checked');
     if(identity) return identity.identity_data?.sub==='tg:'+launch.telegramId?reply(200,'linked'):reply(409,'conflict');
   }
+  if(intent==='login') {
+    const detached=await telegramAdmin().rpc('roomlet_telegram_detached',{p_telegram_id:launch.telegramId});
+    if(detached.error) return reply(503,'storage');
+    if(detached.data===true) return reply(409,'detached');
+  }
   const used=await telegramAdmin().rpc('consume_telegram_launch',{proof_hash:launch.replayKey,valid_until:new Date(launch.expiresAt*1000).toISOString()});
   if(used.error) { telegramFailure('consume',used.error.code,undefined,trace); return reply(503,'storage'); }
   if(used.data!==true) return reply(409,'reopen');
@@ -75,6 +80,15 @@ export async function exchangeTelegram(launch:TelegramLaunch,intent:'login'|'lin
   if(intent==='link' && result.data.user.id!==user?.id) {
     await client.auth.signOut({scope:'local'});
     return reply(403,'session');
+  }
+  if(intent==='login') {
+    // Auth can have read an identity just before another request unlinked it.
+    // Recheck after session creation; later unlink will revoke this session too.
+    const current=await telegramAdmin().rpc('roomlet_telegram_account',{p_telegram_id:launch.telegramId});
+    if(current.error || current.data!==result.data.user.id) {
+      await signInClient.auth.signOut({scope:'local'});
+      return reply(409,'detached');
+    }
   }
   record('supabase-session-created');
   return reply(200,intent==='link'?'linked':'signed-in');

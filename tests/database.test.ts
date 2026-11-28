@@ -12,11 +12,16 @@ test("Phase 02 · PostgreSQL, RLS и Storage", async t => {
   await db.exec(`
     create role anon; create role authenticated; create role service_role bypassrls;
     create schema auth; create table auth.users(id uuid primary key, email text, email_confirmed_at timestamptz,
-      raw_app_meta_data jsonb default '{}', raw_user_meta_data jsonb default '{}', banned_until timestamptz);
+      raw_app_meta_data jsonb default '{}', raw_user_meta_data jsonb default '{}', banned_until timestamptz,
+      encrypted_password text, recovery_token text, confirmation_token text, email_change text,
+      email_change_token_current text, email_change_token_new text, email_change_confirm_status int,
+      reauthentication_token text);
     create table auth.identities(id uuid primary key default gen_random_uuid(), user_id uuid references auth.users,
       provider text, provider_id text, identity_data jsonb default '{}', updated_at timestamptz default now(), unique(provider,provider_id));
-    create table auth.sessions(id uuid primary key default gen_random_uuid(),user_id uuid references auth.users);
-    create table auth.refresh_tokens(id bigint generated always as identity,user_id varchar,revoked boolean default false);
+    create table auth.sessions(id uuid primary key default gen_random_uuid(),user_id uuid references auth.users,created_at timestamptz default now());
+    create table auth.refresh_tokens(id bigint generated always as identity,user_id varchar,revoked boolean default false,session_id uuid);
+    create table auth.one_time_tokens(id uuid primary key default gen_random_uuid(),user_id uuid);
+    create table auth.flow_state(id uuid primary key default gen_random_uuid(),user_id uuid);
     create function auth.uid() returns uuid language sql stable as
       $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
     create schema storage;
@@ -273,5 +278,70 @@ test("Phase 02 · PostgreSQL, RLS и Storage", async t => {
     await asUser(source);
     await assert.rejects(db.query('select * from roomlet_private.telegram_account_transfers'),{code:'42501'});
     assert.equal((await db.query('select * from workshop_settings')).rows.length,0);
+  });
+  await t.test('отключение требует оставшегося способа и отзывает старые сеансы без потери профиля',async()=>{
+    await db.exec('reset role');
+    const user=randomUUID(),emailId=randomUUID(),tgId=randomUUID(),fresh=randomUUID(),old=randomUUID();
+    await db.query("insert into auth.users(id,email,email_confirmed_at) values ($1,'unlink@example.test',now())",[user]);
+    await db.query("update profiles set role='owner',contact_phone='+12025550123' where id=$1",[user]);
+    await db.query("insert into auth.identities(id,user_id,provider,provider_id) values ($1,$3,'email',$3::uuid::text),($2,$3,'custom:roomlet-telegram','tg:555666777')",[emailId,tgId,user]);
+    await db.query('insert into auth.sessions(id,user_id) values ($1,$3),($2,$3)',[fresh,old,user]);
+    await db.query('insert into auth.refresh_tokens(user_id,session_id) values ($1,$2),($1,$3)',[user,fresh,old]);
+    // A direct Supabase unlink must not bypass fresh proof, even with two identities.
+    await assert.rejects(db.query('delete from auth.identities where id=$1',[tgId]),{code:'42501'});
+    const prepare=(remove:string,retain:string)=>db.query('select public.roomlet_prepare_disconnect($1,$2,$3,$4)',[user,remove,retain,fresh]);
+    for(const account of [undefined,user]) {await asUser(account);await assert.rejects(prepare(tgId,emailId),{code:'42501'});}
+    await db.exec('reset role; set role service_role');
+    // Verified email alone is not a usable password login.
+    await assert.rejects(prepare(tgId,emailId),{code:'42501'});
+    await db.exec('reset role');
+    await db.query("update auth.users set encrypted_password='test-password-hash' where id=$1",[user]);
+    await db.exec('set role service_role');await prepare(tgId,emailId);
+    await db.exec('reset role');
+    await db.query('delete from auth.identities where id=$1',[tgId]);
+    assert.deepEqual((await db.query('select id,role,contact_phone from profiles where id=$1',[user])).rows,[{id:user,role:'owner',contact_phone:'+12025550123'}]);
+    assert.deepEqual((await db.query('select id from auth.sessions where user_id=$1',[user])).rows,[]);
+    assert.equal((await db.query<{revoked:boolean}>('select revoked from auth.refresh_tokens where session_id=$1',[old])).rows[0].revoked,true);
+    await asUser(user);
+    assert.deepEqual((await db.query('select id from profiles where id=$1',[user])).rows,[]);
+    await db.query("select set_config('request.jwt.claims',$1,false)",[JSON.stringify({session_id:fresh})]);
+    assert.equal((await db.query('select id from profiles where id=$1',[user])).rows.length,0);
+    // Signing in again via the surviving method restores access to this UUID.
+    await db.exec('reset role');
+    await db.query('insert into auth.sessions(id,user_id) values ($1,$2)',[fresh,user]);
+    await asUser(user);
+    assert.equal((await db.query('select id from profiles where id=$1',[user])).rows.length,1);
+    await db.exec('reset role; set role service_role');
+    await assert.rejects(prepare(emailId,tgId),{code:'42501'});
+    assert.equal((await db.query<{detached:boolean}>("select public.roomlet_telegram_detached('555666777') as detached")).rows[0].detached,true);
+    await db.exec('reset role');
+    const duplicate=randomUUID();
+    await assert.rejects(db.transaction(async tx=>{
+      await tx.query('insert into auth.users(id) values ($1)',[duplicate]);
+      await tx.query("insert into auth.identities(user_id,provider,provider_id) values ($1,'custom:roomlet-telegram','tg:555666777')",[duplicate]);
+    }),{code:'42501'});
+    assert.equal((await db.query('select id from profiles where id=$1',[duplicate])).rows.length,0);
+    // Reconnecting creates an identity on the SAME UUID, never a new user.
+    await db.exec('reset role');
+    const reconnected=randomUUID();
+    await db.query("insert into auth.identities(id,user_id,provider,provider_id) values ($1,$2,'custom:roomlet-telegram','tg:555666777')",[reconnected,user]);
+    await db.exec('set role service_role');
+    assert.equal((await db.query<{detached:boolean}>("select public.roomlet_telegram_detached('555666777') as detached")).rows[0].detached,false);
+    await assert.rejects(prepare(emailId,reconnected),{code:'42501'});
+    const proof='d'.repeat(64);
+    await db.query("select consume_telegram_launch($1,now()+interval '2 minutes')",[proof]);
+    await db.query('select public.roomlet_prepare_disconnect($1,$2,$3,$4,$5)',[user,emailId,reconnected,fresh,proof]);
+    await db.exec('reset role');
+    await db.query("update auth.users set recovery_token='old-code',email_change='pending@example.test' where id=$1",[user]);
+    await db.query('insert into auth.one_time_tokens(user_id) values ($1)',[user]);
+    await db.query('delete from auth.identities where id=$1',[emailId]);
+    const auth=(await db.query<{email:string|null;encrypted_password:string;recovery_token:string;email_change:string}>('select email,encrypted_password,recovery_token,email_change from auth.users where id=$1',[user])).rows[0];
+    assert.ok(!auth.email);assert.ok(!auth.encrypted_password);assert.ok(!auth.recovery_token);assert.ok(!auth.email_change);
+    assert.equal((await db.query('select id from auth.one_time_tokens where user_id=$1',[user])).rows.length,0);
+    await assert.rejects(db.query('delete from auth.identities where id=$1',[reconnected]),{code:'42501'});
+    await db.query("insert into auth.identities(user_id,provider,provider_id) values ($1,'email',$1::uuid::text)",[user]);
+    await db.query("update auth.users set email='unlink@example.test',email_confirmed_at=now(),encrypted_password='new-test-hash' where id=$1",[user]);
+    assert.equal((await db.query('select id from auth.users where id=$1',[user])).rows.length,1);
+    assert.equal((await db.query<{role:string}>('select role from profiles where id=$1',[user])).rows[0].role,'owner');
   });
 });

@@ -14,6 +14,13 @@ test('OIDC cookie authenticates intent, account, state, nonce and expires', () =
   assert.throws(()=>openWebFlow(cookie,secret,flow.state,401));
   assert.throws(()=>openWebFlow(cookie,'other-secret',flow.state,101));
 });
+test('email disconnect consent stays bound to the original account and one expiring OIDC flow',()=>{
+  const flow={...createWebFlow('link','account-one','/profile/settings',100),intent:'disconnect-email' as const};
+  const sealed=sealWebFlow(flow,'test-secret');
+  assert.deepEqual(openWebFlow(sealed,'test-secret',flow.state,101),flow);
+  assert.throws(()=>openWebFlow(sealed,'test-secret','another-state',101));
+  assert.throws(()=>openWebFlow(sealed,'test-secret',flow.state,400));
+});
 test('official Telegram JWT maps signed numeric id to the same Mini App identity', async () => {
   const {privateKey,publicKey}=await generateKeyPair('RS256');
   const jwk=await exportJWK(publicKey);jwk.kid='test';

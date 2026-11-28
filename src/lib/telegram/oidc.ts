@@ -5,7 +5,7 @@ import type { TelegramLaunch } from './init-data.server.ts';
 
 const issuer='https://oauth.telegram.org';
 const telegramKeys=createRemoteJWKSet(new URL(issuer+'/.well-known/jwks.json'),{[customFetch]:()=>telegramRequest('/.well-known/jwks.json')});
-export type WebFlow={intent:'login'|'link';accountId:string|null;next:string;state:string;nonce:string;verifier:string;expiresAt:number;allowTransfer?:boolean;trace?:string};
+export type WebFlow={intent:'login'|'link'|'disconnect-email';accountId:string|null;next:string;state:string;nonce:string;verifier:string;expiresAt:number;allowTransfer?:boolean;trace?:string};
 export function createWebFlow(intent:WebFlow['intent'],accountId:string|null,next:string,now=Math.floor(Date.now()/1000)):WebFlow {
   return {intent,accountId,next,state:randomBytes(32).toString('base64url'),nonce:randomBytes(32).toString('base64url'),verifier:randomBytes(32).toString('base64url'),expiresAt:now+300,trace:randomUUID().slice(0,8)};
 }
@@ -21,7 +21,7 @@ export function openWebFlow(raw:string,secret:string,state:string,now=Math.floor
   const actual=Buffer.from(signature,'base64url');
   if(actual.length!==expected.length || !timingSafeEqual(actual,expected)) throw Error('Invalid flow');
   const flow=JSON.parse(Buffer.from(payload,'base64url').toString()) as WebFlow;
-  if(flow.state!==state || !['login','link'].includes(flow.intent) || !Number.isSafeInteger(flow.expiresAt) ||
+  if(flow.state!==state || !['login','link','disconnect-email'].includes(flow.intent) || !Number.isSafeInteger(flow.expiresAt) ||
     now>=flow.expiresAt || flow.expiresAt>now+300 || !/^[\w-]{43}$/.test(flow.verifier) || !/^[\w-]{43}$/.test(flow.nonce)) throw Error('Invalid flow');
   return flow;
 }
