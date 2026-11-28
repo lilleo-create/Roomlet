@@ -11,7 +11,12 @@ test("Phase 02 · PostgreSQL, RLS и Storage", async t => {
   t.after(() => db.close());
   await db.exec(`
     create role anon; create role authenticated; create role service_role bypassrls;
-    create schema auth; create table auth.users(id uuid primary key, email text, email_confirmed_at timestamptz);
+    create schema auth; create table auth.users(id uuid primary key, email text, email_confirmed_at timestamptz,
+      raw_app_meta_data jsonb default '{}', banned_until timestamptz);
+    create table auth.identities(id uuid primary key default gen_random_uuid(), user_id uuid references auth.users,
+      provider text, provider_id text, identity_data jsonb default '{}', updated_at timestamptz default now(), unique(provider,provider_id));
+    create table auth.sessions(id uuid primary key default gen_random_uuid(),user_id uuid references auth.users);
+    create table auth.refresh_tokens(id bigint generated always as identity,user_id varchar,revoked boolean default false);
     create function auth.uid() returns uuid language sql stable as
       $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
     create schema storage;
@@ -59,6 +64,17 @@ test("Phase 02 · PostgreSQL, RLS и Storage", async t => {
     assert.equal((await consume(400)).rows[0].used,false);
     assert.equal((await consume(120)).rows[0].used,true);
     assert.equal((await consume(120)).rows[0].used,false);
+  });
+  await t.test("контактные данные сохраняются только у себя и не подтверждают почту",async()=>{
+    await asUser(customer);
+    await db.query("update profiles set contact_email='contact@example.test',contact_phone='+79991234567',display_name='Ирина' where id=$1",[customer]);
+    assert.deepEqual((await db.query("select contact_email,contact_phone from profiles where id=$1",[customer])).rows,
+      [{contact_email:'contact@example.test',contact_phone:'+79991234567'}]);
+    assert.equal((await db.query("update profiles set contact_phone='+12025550123' where id=$1 returning id",[maker])).rows.length,0);
+    await assert.rejects(db.query("update profiles set contact_phone='bad' where id=$1",[customer]),{code:'23514'});
+    await assert.rejects(db.query("update profiles set contact_email='broken' where id=$1",[customer]),{code:'23514'});
+    await db.exec('reset role');
+    assert.equal((await db.query<{email_confirmed_at:null}>("select email_confirmed_at from auth.users where id=$1",[customer])).rows[0].email_confirmed_at,null);
   });
   await t.test("черновик, его цена закупки и фотография закрыты от посетителя",async()=>{
     await asUser(maker);
@@ -163,5 +179,57 @@ test("Phase 02 · PostgreSQL, RLS и Storage", async t => {
     await asUser(customer);
     assert.equal((await db.query("select * from workshop_settings")).rows.length, 0);
     await assert.rejects(save(), { code: "42501" });
+    await db.exec('reset role');
+    const telegramUser=randomUUID();
+    await db.query('insert into auth.users(id) values($1)',[telegramUser]);
+    await db.query("insert into auth.identities(user_id,provider,provider_id,identity_data) values($1,'custom:roomlet-telegram','tg:123456789','{\"name\":\"Мастер без почты\",\"preferred_username\":\"maker_test\"}')",[telegramUser]);
+    for(const actor of [undefined,customer,maker]) {
+      await asUser(actor);
+      await assert.rejects(db.query("select * from roomlet_find_team_account('123456789')"),{code:'42501'});
+      await assert.rejects(db.query('select roomlet_grant_maker_by_id($1)',[telegramUser]),{code:'42501'});
+    }
+    await asUser(owner);
+    assert.equal((await db.query<{user_id:string}>("select * from roomlet_find_team_account('123456789')")).rows[0].user_id,telegramUser);
+    assert.equal((await db.query('select * from roomlet_find_team_account($1)',[telegramUser])).rows.length,1);
+    assert.equal((await db.query("select * from roomlet_find_team_account('maker_test')")).rows.length,0);
+    await db.query('select roomlet_grant_maker_by_id($1)',[telegramUser]);
+    await asUser(telegramUser);
+    assert.equal((await db.query('select * from workshop_settings')).rows.length,1);
+    await asUser(owner);
+    await db.query('select roomlet_revoke_maker($1)',[telegramUser]);
+    await assert.rejects(db.query('select roomlet_grant_maker_by_id($1)',[owner]),{code:'42501'});
+    await asUser(telegramUser);
+    assert.equal((await db.query('select * from workshop_settings')).rows.length,0);
+  });
+  await t.test('перенос Telegram сохраняет owner, заказы и исходную запись; доступен только серверу',async()=>{
+    await db.exec('reset role');
+    const target=randomUUID(),source=randomUUID(),other=randomUUID();
+    await db.query("insert into auth.users(id,email,email_confirmed_at) values($1,'link@example.test',now()),($2,null,null),($3,null,null)",[target,source,other]);
+    await db.query("update profiles set role='owner' where id=$1",[target]);
+    await db.query("update profiles set contact_phone='+12025550123' where id=$1",[source]);
+    await db.query("insert into auth.identities(user_id,provider,provider_id) values($1,'email','owner-link'),($2,'custom:roomlet-telegram','tg:987654321')",[target,source]);
+    await db.query("insert into orders(customer_id,currency,total_minor) values($1,'RUB',100)",[source]);
+    await db.query("insert into auth.sessions(user_id) values($1)",[source]);
+    await db.query("insert into auth.refresh_tokens(user_id) values($1)",[source]);
+    const proof='d'.repeat(64);
+    const transfer=()=>db.query<{roomlet_transfer_telegram:boolean}>('select roomlet_transfer_telegram($1,$2,$3)',[target,'987654321',proof]);
+    for(const actor of [undefined,source,target]) { await asUser(actor); await assert.rejects(transfer(),{code:'42501'}); }
+    await db.exec('reset role; set role service_role');
+    await assert.rejects(transfer(),{code:'42501'});
+    await db.query("select consume_telegram_launch($1,now()+interval '1 minute')",[proof]);
+    assert.equal((await transfer()).rows[0].roomlet_transfer_telegram,true);
+    assert.equal((await db.query<{merged:boolean}>('select roomlet_telegram_account_merged($1) as merged',[source])).rows[0].merged,true);
+    await assert.rejects(transfer(),{code:'42501'});
+    await db.exec('reset role');
+    assert.equal((await db.query<{user_id:string}>("select user_id from auth.identities where provider_id='tg:987654321'")).rows[0].user_id,target);
+    assert.equal((await db.query<{role:string}>('select role from profiles where id=$1',[target])).rows[0].role,'owner');
+    assert.equal((await db.query<{role:string}>('select role from profiles where id=$1',[source])).rows[0].role,'customer');
+    assert.equal((await db.query<{n:number}>('select count(*)::int n from orders where customer_id=$1',[target])).rows[0].n,1);
+    assert.equal((await db.query<{n:number}>('select count(*)::int n from auth.sessions where user_id=$1',[source])).rows[0].n,0);
+    assert.equal((await db.query<{revoked:boolean}>('select revoked from auth.refresh_tokens where user_id=$1',[source])).rows[0].revoked,true);
+    assert.equal((await db.query<{contact_phone:string}>('select contact_phone from profiles where id=$1',[target])).rows[0].contact_phone,'+12025550123');
+    await asUser(source);
+    await assert.rejects(db.query('select * from roomlet_private.telegram_account_transfers'),{code:'42501'});
+    assert.equal((await db.query('select * from workshop_settings')).rows.length,0);
   });
 });

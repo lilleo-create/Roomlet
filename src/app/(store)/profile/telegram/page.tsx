@@ -12,7 +12,7 @@ export default async function TelegramLink() {
   return <section className="store-page store-narrow profile-subpage">
     <Link href="/profile/settings" className="store-back">Настройки профиля</Link>
     <PageHeading title="Привязать Telegram" />
-    <p>Подключить Telegram к аккаунту {account.email || account.name}? Существующие заказы и роль сохранятся.</p>
+    <p>Подключить Telegram к аккаунту {account.email || account.name}? Ваши заказы и доступ к мастерской сохранятся.</p>
     <TelegramLinkAction accountId={account.id} webAvailable={webTelegramEnabled()} />
   </section>;
 }

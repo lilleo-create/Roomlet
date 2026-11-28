@@ -32,7 +32,7 @@ export async function GET(request:Request) {
     const tokens=await response.json();
     if(typeof tokens.id_token!=='string' || tokens.id_token.length>16384) throw Error('Missing token');
     const launch=await verifyTelegramToken(tokens.id_token,config.clientId,flow.nonce);
-    const result=await exchangeTelegram(launch,flow.intent,flow.accountId);
+    const result=await exchangeTelegram(launch,flow.intent,flow.accountId,false,flow.allowTransfer===true);
     if(result.status===200) destination=flow.intent==='link'?'/profile/settings?telegram=linked':authDestination(flow.next);
     else if(result.result==='reauth') destination='/profile/login?next=/profile/telegram';
     else if(result.result==='conflict') destination='/profile/settings?telegram=conflict';

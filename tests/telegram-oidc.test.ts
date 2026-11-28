@@ -5,6 +5,7 @@ import { createWebFlow, openWebFlow, sealWebFlow, verifyTelegramToken } from '..
 
 test('OIDC cookie authenticates intent, account, state, nonce and expires', () => {
   const flow=createWebFlow('link','owner-uuid','/profile/settings',100);
+  flow.allowTransfer=true;
   const secret='test-secret-with-sufficient-entropy';
   const cookie=sealWebFlow(flow,secret);
   assert.deepEqual(openWebFlow(cookie,secret,flow.state,101),flow);

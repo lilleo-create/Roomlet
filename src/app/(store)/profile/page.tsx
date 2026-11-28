@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowUpRight, Bell, CalendarDays, ChevronRight, Heart, LayoutGrid, LogOut, Mail, Package, Settings, UserRound, UsersRound, type LucideIcon } from "lucide-react";
 import { PageHeading } from "@/components/ui";
-import { readAccount, roleLabels } from "@/features/profile/session";
+import { readAccount } from "@/features/profile/session";
 import { leaveProfile } from "./actions";
 import {readSupportUsername} from "@/lib/telegram/support.server";
 import {supportLink} from "@/lib/telegram/support";
@@ -42,7 +42,7 @@ export default async function ProfilePage() {
       <span className="profile-avatar" aria-hidden="true"><UserRound size={23} strokeWidth={1.65} /></span>
       <div className="profile-identity-copy">
         <p className="profile-name">{account ? account.name || account.email || "Пользователь Roomlet" : "Гость"}</p>
-        <p className="profile-role">{account ? `Личный кабинет · ${roleLabels[account.role]}` : "Личный кабинет"}</p>
+        <p className="profile-role">Личный кабинет</p>
       </div>
     </div>
     {!account && <div className="profile-guest-actions"><Link className="store-primary-link" href="/profile/login">Войти <ArrowUpRight size={16} aria-hidden /></Link><Link className="profile-signin" href="/profile/register">Создать аккаунт</Link></div>}

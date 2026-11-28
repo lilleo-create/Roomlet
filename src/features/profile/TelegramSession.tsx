@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { authDestination } from "./auth-paths";
 
 type WebApp = {initData: string; ready: () => void};
-type Session = {status: string; mini: boolean; link: (accountId: string) => Promise<string>};
+type Session = {status: string; mini: boolean; link: (accountId: string, allowTransfer?: boolean) => Promise<string>};
 const TelegramContext = createContext<Session>({status:"detecting", mini:false, link:async()=>"unavailable"});
 const webApp = () => (window as Window & {Telegram?:{WebApp?:WebApp}}).Telegram?.WebApp;
 
@@ -14,14 +14,14 @@ export function TelegramSession({children}: {children: ReactNode}) {
   const router = useRouter();
   const started = useRef(false);
   const [state, setState] = useState({status:"detecting", mini:false});
-  const exchange = useCallback(async (accountId?: string) => {
+  const exchange = useCallback(async (accountId?: string, allowTransfer = false) => {
     const raw = webApp()?.initData;
     if (!raw) return "outside";
     try {
       const response = await fetch("/api/telegram/session", {
         method:"POST", credentials:"same-origin", cache:"no-store", signal:AbortSignal.timeout(15000),
         headers:{"Content-Type":"text/plain;charset=UTF-8", "x-roomlet-intent":accountId?"link":"login",
-          ...(accountId?{"x-roomlet-account":accountId}:{})}, body:raw,
+          ...(accountId?{"x-roomlet-account":accountId,"x-roomlet-transfer":allowTransfer?'yes':'no'}:{})}, body:raw,
       });
       const data = await response.json();
       const accepted = response.ok && ["signed-in","existing","linked"].includes(data.result);

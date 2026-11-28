@@ -2,7 +2,8 @@ import { Button, Input, PageHeading } from "@/components/ui";
 import { requireOwner } from "@/features/studio/session";
 import { StudioShell } from "@/features/studio/Shell";
 import { canSendTeamInvites } from "@/features/studio/TeamInvite";
-import { grantMaker, inviteMember, revokeMaker } from "./actions";
+import { inviteMember } from "./actions";
+import { TeamAccess, RevokeAccess } from './TeamAccess';
 import "./team.css";
 
 const notices: Record<string, string> = {
@@ -33,24 +34,20 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
       <div className="rs-team">
         <section><h2>Участники</h2><ul className="rs-team-members">
           {members.map(member => <li key={member.user_id}>
-            <div><strong>{member.display_name || member.email}</strong>
+            <div><strong>{member.display_name || member.email || 'Пользователь Roomlet'}</strong>
               {member.display_name && <span>{member.email}</span>}
+              <span>Roomlet ID: {member.user_id}</span>
               <span>{member.member_role === "owner" ? "Владелец мастерской" : "Мастер"}</span>
             </div>
-            {member.member_role === "maker" && <form action={revokeMaker}><input type="hidden" name="id" value={member.user_id} />
-              <Button type="submit" variant="secondary" aria-label={`Отозвать доступ у ${member.email}`}>Отозвать доступ</Button>
-            </form>}
+            {member.member_role === "maker" && <RevokeAccess id={member.user_id} name={member.display_name || member.email || 'Пользователь Roomlet'} />}
           </li>)}
         </ul></section>
-        <section><h2>Назначить мастера</h2><form className="rs-team-form" action={grantMaker}>
-          <Input label="Подтверждённая почта участника" type="email" name="email" autoComplete="off" maxLength={254} required />
-          <Button type="submit">Назначить мастером</Button>
-        </form></section>
+        <section><h2>Назначить мастера</h2><TeamAccess /></section>
         <section><h2>Пригласить по почте</h2>{canSendTeamInvites() ?
           <form className="rs-team-form" action={inviteMember}>
             <Input label="Почта нового участника" type="email" name="email" autoComplete="off" maxLength={254} required />
             <Button type="submit" variant="secondary">Отправить приглашение</Button>
-          </form> : <p>Отправка писем не настроена. Участнику с подтверждённой почтой можно назначить роль мастера.</p>}
+          </form> : <p>Отправка приглашений пока недоступна. Участник может войти через Telegram и сообщить вам свой идентификатор.</p>}
         </section>
       </div>}
   </StudioShell>;

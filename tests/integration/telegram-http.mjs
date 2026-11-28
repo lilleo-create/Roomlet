@@ -10,10 +10,12 @@ const {publicKey,privateKey} = generateKeyPairSync("rsa",{modulusLength:2048});
 const botToken="fixture-bot-token", issuer="https://mini.example", customer="37d39ed5-04b4-48fa-a8bb-6db339ce4e1b";
 const stored = new Set();
 let exchanges=0;
+let transferred=false;
 const fixtureUser={id:customer,aud:'authenticated',role:'authenticated',email:'',
   app_metadata:{provider:'custom:roomlet-telegram',providers:['custom:roomlet-telegram']},user_metadata:{},
   identities:[{id:'telegram-fixture',identity_id:'telegram-fixture',user_id:customer,provider:'custom:roomlet-telegram',identity_data:{sub:'tg:12345',name:'Test'}}]};
 const ownerUser={id:'bce30769-a1bf-4ba4-b02c-3b1fa2655190',aud:'authenticated',role:'authenticated',email:'owner@example.test',
+  email_confirmed_at:new Date().toISOString(),
   app_metadata:{provider:'email',providers:['email']},user_metadata:{},identities:[]};
 const fixtureIssuedAt=Math.floor(Date.now()/1000);
 const tokenFor=user=>jsonPart({alg:'HS256'})+'.'+jsonPart({sub:user.id,exp:fixtureIssuedAt+3600,amr:[{method:'password',timestamp:fixtureIssuedAt}]})+'.ZmFrZQ';
@@ -37,7 +39,17 @@ const backend=createServer(async(req,res)=>{
   const currentUser=req.headers.authorization==='Bearer '+tokenFor(ownerUser)?ownerUser:fixtureUser;
   if(req.url==='/auth/v1/user') return json(200,currentUser);
   if(req.url==='/auth/v1/token?grant_type=password') return json(200,sessionFor(ownerUser));
-  if(req.url.startsWith('/rest/v1/profiles?')) return json(200,{display_name:'Test',role:currentUser.id===ownerUser.id?'owner':'customer'});
+  if(req.url==='/auth/v1/token?grant_type=refresh_token') return json(200,sessionFor(ownerUser));
+  if(req.url.startsWith('/auth/v1/logout')) return json(200,{});
+  if(req.url.startsWith('/rest/v1/profiles?')) return json(200,{display_name:'Test',role:currentUser.id===ownerUser.id?'owner':'customer',contact_email:null,contact_phone:null});
+  if(req.url==='/rest/v1/rpc/roomlet_telegram_account_merged') return json(200,transferred && JSON.parse(body).p_user_id===customer);
+  if(req.url==='/rest/v1/rpc/roomlet_transfer_telegram') {
+    assert.equal(req.headers.apikey,'private-fixture-key');
+    const input=JSON.parse(body);
+    assert.equal(input.p_target,ownerUser.id);assert.equal(input.p_telegram_id,'12345');
+    assert.ok(stored.has(input.p_proof_hash));
+    transferred=true;return json(200,true);
+  }
   if(req.url==='/rest/v1/rpc/roomlet_support_username') return json(200,null);
   if(req.url.startsWith('/rest/v1/') && !['consume_telegram_launch','claim_telegram_update','finish_telegram_update'].some(name=>req.url==='/rest/v1/rpc/'+name)) return json(200,[]);
   if(req.url==='/rest/v1/rpc/claim_telegram_update') {
@@ -60,13 +72,15 @@ const backend=createServer(async(req,res)=>{
     const [head,payload,sig]=id_token.split(".");
     assert.ok(verify("RSA-SHA256",Buffer.from(head+"."+payload),publicKey,Buffer.from(sig,"base64url")));
     const claims=JSON.parse(Buffer.from(payload,"base64url"));
-    assert.equal(claims.iss,issuer);assert.equal(claims.aud,"roomlet-mini-app");assert.equal(claims.sub,link_identity?'tg:67890':'tg:12345');
+    assert.equal(claims.iss,issuer);assert.equal(claims.aud,"roomlet-mini-app");
+    if(link_identity && claims.sub==='tg:12345') return json(422,{code:'identity_already_exists',error_code:'identity_already_exists',msg:'Already linked'});
+    assert.equal(claims.sub,link_identity?'tg:67890':'tg:12345');
     assert.equal(claims.nonce,createHash("sha256").update(nonce).digest("hex"));
     if(link_identity) {
       assert.equal(currentUser.id,ownerUser.id);
       return json(200,sessionFor({...ownerUser,identities:[{...fixtureUser.identities[0],user_id:ownerUser.id,identity_data:{sub:'tg:67890'}}]}));
     }
-    return json(200,sessionFor(fixtureUser));
+    return json(200,sessionFor(transferred?ownerUser:fixtureUser));
   }
   json(404,{message:"unexpected fixture route"});
 });
@@ -134,7 +148,7 @@ try {
   const profile=await fetch(base+'/profile/settings',{headers:{cookie:sessionCookie}});
   const profileHTML=await profile.text();
   assert.equal(profile.status,200);
-  assert.ok(profileHTML.includes('Покупатель') && profileHTML.includes('Не указана'),'No email is required for the customer profile');
+  assert.ok(profileHTML.includes('Личные данные') && profileHTML.includes('Необязательно') && !profileHTML.includes('>Покупатель<'),'No email or role label is required for the customer profile');
   assert.equal((await post("login")).status,409);
   const ownerCookies=[];
   const ownerClient=createServerClient(backendURL,'public-fixture-key',{cookies:{getAll:()=>ownerCookies,setAll:values=>ownerCookies.splice(0,ownerCookies.length,...values)}});
@@ -150,7 +164,23 @@ try {
   assert.deepEqual(await linked.json(),{result:'linked'});
   const linkedCookie=linked.headers.getSetCookie().map(value=>value.split(';')[0]).join('; ');
   const ownerSettings=await (await fetch(base+'/profile/settings',{headers:{cookie:linkedCookie}})).text();
-  assert.ok(ownerSettings.includes('Владелец мастерской'),'Explicit linking must retain the owner account');
+  assert.ok(ownerSettings.includes(ownerUser.id),'Explicit linking must retain the owner UUID');
+  const mergeLaunch=sequence=>{
+    const value=new URLSearchParams({auth_date:String(Math.floor(Date.now()/1000)),query_id:sequence,user:JSON.stringify({id:12345,first_name:'Test'})});
+    value.set('hash',createHmac('sha256',secret).update([...value].sort(([a],[b])=>a.localeCompare(b)).map(([k,v])=>k+'='+v).join('\n')).digest('hex'));
+    return value.toString();
+  };
+  const transferPost=consent=>fetch(base+'/api/telegram/session',{method:'POST',headers:{origin:issuer,'x-roomlet-intent':'link',
+    'x-roomlet-account':ownerUser.id,'x-roomlet-transfer':consent?'yes':'no',cookie:ownerCookie},body:mergeLaunch(consent?'consented':'not-consented')});
+  assert.equal((await transferPost(false)).status,409);
+  assert.equal(transferred,false,'An occupied identity must not transfer without explicit consent');
+  assert.deepEqual(await (await transferPost(true)).json(),{result:'linked'});
+  assert.equal(transferred,true);
+  const afterTransfer=await fetch(base+'/api/telegram/session',{method:'POST',headers:{origin:issuer,'x-roomlet-intent':'login',cookie:sessionCookie},body:mergeLaunch('reopen-after-transfer')});
+  assert.deepEqual(await afterTransfer.json(),{result:'signed-in'},'An old customer cookie must be replaced after an explicitly confirmed transfer');
+  const transferredCookies=afterTransfer.headers.getSetCookie().filter(value=>value.startsWith('__Host-roomlet-mini=') && !value.startsWith('__Host-roomlet-mini=;')).map(value=>value.split(';')[0]).join('; ');
+  const transferredProfile=await (await fetch(base+'/profile/settings',{headers:{cookie:transferredCookies}})).text();
+  assert.ok(transferredProfile.includes(ownerUser.id),'Telegram signs into the original owner UUID after transfer');
   const update={update_id:7,message:{chat:{id:12345,type:'private'},from:{id:12345,is_bot:false},text:'/shop'}};
   const webhook=secret=>fetch(base+'/api/telegram/webhook',{method:'POST',headers:{'x-telegram-bot-api-secret-token':secret},body:JSON.stringify(update)});
   assert.equal((await webhook('wrong')).status,403);

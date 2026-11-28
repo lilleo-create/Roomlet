@@ -29,12 +29,25 @@ export async function inviteMember(form: FormData) {
 
 export async function grantMaker(form: FormData) {
   const { supabase } = await requireOwner();
-  const email = emailFrom(form);
-  const { error } = await supabase.rpc("roomlet_grant_maker", { p_email: email });
+  const id = String(form.get('id') ?? '');
+  if (!/^[\da-f]{8}(-[\da-f]{4}){3}-[\da-f]{12}$/i.test(id) || form.get('confirmed') !== 'yes') message('grant-error');
+  const { error } = await supabase.rpc("roomlet_grant_maker_by_id", { p_user_id: id });
   if (error?.code === "P0002") message("missing");
   if (error) message("grant-error");
   revalidatePath("/studio/team");
   message("granted");
+}
+
+export type TeamAccount = {user_id:string;email:string|null;display_name:string;member_role:string;telegram_id:string|null;telegram_username:string|null};
+export type TeamLookup = {error?:string;accounts?:TeamAccount[]};
+export async function findTeamAccount(_previous:TeamLookup, form:FormData):Promise<TeamLookup> {
+  const {supabase} = await requireOwner();
+  const identifier = String(form.get('identifier') ?? '').trim();
+  if (!identifier || identifier.length > 254) return {error:'Укажите Roomlet ID, Telegram ID или подтверждённую почту.'};
+  const {data,error} = await supabase.rpc('roomlet_find_team_account',{p_identifier:identifier});
+  if (error) return {error:'Не удалось найти участника. Попробуйте ещё раз.'};
+  if (!data?.length) return {error:'Участник не найден. Попросите его скопировать идентификатор из настроек профиля.'};
+  return {accounts:data};
 }
 
 export async function revokeMaker(form: FormData) {

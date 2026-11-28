@@ -3,6 +3,19 @@ import assert from 'node:assert/strict';
 import { authorizationUrl, createWebFlow } from '../src/lib/telegram/oidc.ts';
 import { authDestination } from '../src/features/profile/auth-paths.ts';
 import { createHash } from 'node:crypto';
+import { profileContact,telegramPicture } from '../src/features/profile/contact.ts';
+
+test('optional profile contacts are validated without creating login credentials',()=>{
+  const form=new FormData();
+  form.set('display_name',' Анна ');form.set('contact_phone','+7 (999) 123-45-67');
+  assert.deepEqual(profileContact(form),{value:{display_name:'Анна',contact_email:null,contact_phone:'+79991234567'}});
+  for(const phone of ['89991234567','+0','javascript:alert(1)']) {form.set('contact_phone',phone);assert.ok(profileContact(form).error);}
+  form.set('contact_phone','');form.set('contact_email','bad');assert.ok(profileContact(form).error);
+  form.set('contact_email','user@example.test');assert.equal(profileContact(form).value?.contact_email,'user@example.test');
+  assert.equal(telegramPicture('javascript:alert(1)'),null);
+  assert.equal(telegramPicture('https://user:pass@example.test/avatar'),null);
+  assert.equal(telegramPicture('https://t.me/i/userpic.jpg'),'https://t.me/i/userpic.jpg');
+});
 
 test('Telegram redirects use PKCE, state and nonce without requesting phone or messaging permission',()=>{
   const flow=createWebFlow('login',null,'/catalog');

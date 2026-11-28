@@ -22,7 +22,7 @@ export async function POST(request:Request) {
     let launch;
     try {launch=verifyTelegramInitData(await boundedText(request,16384),token);}
     catch {return reply(401,'invalid');}
-    const result=await exchangeTelegram(launch,intent,request.headers.get('x-roomlet-account'),true);
+    const result=await exchangeTelegram(launch,intent,request.headers.get('x-roomlet-account'),true,request.headers.get('x-roomlet-transfer')==='yes');
     return reply(result.status,result.result);
   } catch {return reply(503,'unavailable');}
 }

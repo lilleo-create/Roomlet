@@ -97,6 +97,8 @@
 .profile-account-details > div { display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 12px; padding-block: 12px; border-bottom: 1px solid var(--border); }
 .profile-account-details dt { color: var(--muted); }
 .profile-account-details dd { margin: 0; overflow-wrap: anywhere; }
+.profile-link-consent { display: flex; align-items: flex-start; gap: 12px; line-height: 1.5; }
+.profile-link-consent input { width: 20px; height: 20px; flex: none; accent-color: var(--primary); margin-top: 3px; }
 .profile-loading-line { height: var(--touch-target); display: block; margin-bottom: 12px; }
 
 .profile-guest-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin: 0 0 var(--space-5); }

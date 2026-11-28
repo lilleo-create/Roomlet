@@ -4,7 +4,7 @@ import type { TelegramLaunch } from './init-data.server.ts';
 
 const issuer='https://oauth.telegram.org';
 const telegramKeys=createRemoteJWKSet(new URL(issuer+'/.well-known/jwks.json'),{timeoutDuration:5000});
-export type WebFlow={intent:'login'|'link';accountId:string|null;next:string;state:string;nonce:string;verifier:string;expiresAt:number};
+export type WebFlow={intent:'login'|'link';accountId:string|null;next:string;state:string;nonce:string;verifier:string;expiresAt:number;allowTransfer?:boolean};
 export function createWebFlow(intent:WebFlow['intent'],accountId:string|null,next:string,now=Math.floor(Date.now()/1000)):WebFlow {
   return {intent,accountId,next,state:randomBytes(32).toString('base64url'),nonce:randomBytes(32).toString('base64url'),verifier:randomBytes(32).toString('base64url'),expiresAt:now+300};
 }
