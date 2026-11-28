@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useContext, useMemo, useSyncExternalStore, type ReactNode } from "react";
+import { createContext, useContext, useMemo,useEffect,useState, useSyncExternalStore, type ReactNode } from "react";
+import {savedStorage,emptySaved} from './saved-state';
 
 export type PurchaseMode = "ready" | "made";
 export type Line = { slug: string; mode: PurchaseMode; window: string | null };
@@ -84,10 +85,58 @@ function subscribe(fn: () => void) {
 }
 type Store = State & ReturnType<typeof makeStorage> & {demo: boolean};
 const Context = createContext<Store | null>(null);
-export function StoreProvider({ children, demo }: { children: ReactNode; demo: boolean }) {
+function DemoStoreProvider({ children, demo }: { children: ReactNode; demo: boolean }) {
   const storage = useMemo(() => makeStorage(demo), [demo]);
   const state = useSyncExternalStore(subscribe, storage.get, () => empty);
   return <Context.Provider value={{...state, ...storage, demo}}>{children}</Context.Provider>;
+}
+const notify=()=>window.dispatchEvent(new Event(change));
+async function storageLock<T>(work:()=>T|Promise<T>):Promise<T> {
+  return navigator.locks?navigator.locks.request('roomlet-saved-items',work):work();
+}
+function SavedStoreProvider({children,accountId}:{children:ReactNode;accountId:string|null}) {
+  const [error,setError]=useState('');
+  const storage=useMemo(()=>savedStorage({getItem:key=>window.localStorage.getItem(key),setItem:(key,value)=>window.localStorage.setItem(key,value)},accountId),[accountId]);
+  const state=useSyncExternalStore(subscribe,storage.get,()=>emptySaved);
+  useEffect(()=>{
+    let stopped=false,sending=false,timer:ReturnType<typeof setTimeout>|undefined;
+    async function sync(){
+      if(!accountId||sending||stopped)return;
+      sending=true;
+      try {
+        const operations=storage.pending();
+        const response=await fetch('/api/profile/saved',{method:'POST',credentials:'same-origin',cache:'no-store',signal:AbortSignal.timeout(10000),headers:{'Content-Type':'application/json'},body:JSON.stringify({accountId,operations})});
+        if(!response.ok)throw Error();
+        const data=await response.json();
+        if(stopped||data.accountId!==accountId)return;
+        await storageLock(()=>{storage.ack(operations.map(op=>op.id),data.state);notify();});
+        setError('');
+      } catch{if(!stopped)setError('Изменения остаются на этом устройстве. Синхронизация повторится при подключении.');}
+      finally{sending=false;if(!stopped&&storage.pending().length)timer=setTimeout(sync,10000);}
+    }
+    function changed(){if(storage.pending().length){clearTimeout(timer);timer=setTimeout(sync,300);}}
+    void storageLock(()=>{
+      if(!localStorage.getItem('roomlet.saved.v2:migrated')) {
+        const legacy=JSON.parse(localStorage.getItem('roomlet.favorites.v1')||'{}');
+        if(Array.isArray(legacy.favorites))for(const slug of legacy.favorites)if(typeof slug==='string')storage.favorite(slug,true);
+        localStorage.setItem('roomlet.saved.v2:migrated','yes');
+      }
+      storage.claimGuest();notify();
+    }).then(sync).catch(()=>setError('Не удалось сохранить данные на устройстве. Проверьте доступ к хранилищу браузера.'));
+    window.addEventListener(change,changed);window.addEventListener('storage',changed);window.addEventListener('online',sync);window.addEventListener('focus',sync);
+    return()=>{stopped=true;clearTimeout(timer);window.removeEventListener(change,changed);window.removeEventListener('storage',changed);window.removeEventListener('online',sync);window.removeEventListener('focus',sync);};
+  },[accountId,storage]);
+  function mutate(work:()=>void){void storageLock(()=>{work();notify();}).catch(()=>setError('Не удалось сохранить изменения на устройстве.'));}
+  const value:Store={...state,orders:[],briefs:[],demo:false,get:()=>({...storage.get(),orders:[],briefs:[]}),
+    toggleFavorite:slug=>mutate(()=>storage.favorite(slug,!storage.get().favorites.includes(slug))),
+    addLine:line=>mutate(()=>storage.cart(line,true)),
+    removeLine:id=>mutate(()=>{const line=storage.get().cart.find(item=>lineKey(item)===id);if(line)storage.cart(line,false);}),
+    submitRequest:()=>{},addBrief:()=>{},
+  };
+  return <Context.Provider value={value}>{children}{error&&<p className="store-small" role="status">{error}</p>}</Context.Provider>;
+}
+export function StoreProvider({children,demo,accountId=null}:{children:ReactNode;demo:boolean;accountId?:string|null}) {
+  return demo?<DemoStoreProvider demo={demo}>{children}</DemoStoreProvider>:<SavedStoreProvider accountId={accountId}>{children}</SavedStoreProvider>;
 }
 export function useStore() {
   const value = useContext(Context);

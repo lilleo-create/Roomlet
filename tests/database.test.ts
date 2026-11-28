@@ -48,6 +48,27 @@ test("Phase 02 · PostgreSQL, RLS и Storage", async t => {
   const card={slug:"test",title:"Столик",category_id:category,price_minor:12003,currency:"RUB",made_to_order:true,requires_sketch:false,ready_quantity:2,cost_minor:4200,planned_minutes:60,status:"draft"};
   const save=(changes:Record<string,unknown>={})=>db.query("select public.save_product($1,$2::jsonb)",[id,JSON.stringify({...card,...changes})]);
   const version=async()=> (await db.query<{stamp:string}>("select updated_at::text stamp from public.products where id=$1",[id])).rows[0].stamp;
+  await t.test('закрытая Telegram identity не создаёт новый профиль при запоздавшем входе',async()=>{
+    await db.exec('reset role');
+    const original=randomUUID(),duplicate=randomUUID();
+    await db.query('insert into auth.users(id) values ($1)',[original]);
+    await db.query("insert into auth.identities(user_id,provider,provider_id) values ($1,'custom:roomlet-telegram','tg:88776655')",[original]);
+    await db.exec('set role service_role');
+    assert.equal((await db.query<{created:boolean}>("select roomlet_claim_telegram_creation('88776655',$1) as created",[original])).rows[0].created,true);
+    assert.equal((await db.query<{created:boolean}>("select roomlet_claim_telegram_creation('88776655',$1) as created",[original])).rows[0].created,false);
+    await db.exec('reset role');
+    await db.query('delete from public.profiles where id=$1',[original]);
+    await db.query('delete from auth.identities where user_id=$1',[original]);
+    await db.query('delete from auth.users where id=$1',[original]);
+    await assert.rejects(db.transaction(async tx=>{
+      await tx.query('insert into auth.users(id) values ($1)',[duplicate]);
+      await tx.query("insert into auth.identities(user_id,provider,provider_id) values ($1,'custom:roomlet-telegram','tg:88776655')",[duplicate]);
+    }),{code:'42501'});
+    assert.equal((await db.query('select id from profiles where id=$1',[duplicate])).rows.length,0);
+    await asUser(customer);
+    await assert.rejects(db.query("select roomlet_telegram_account('88776655')"),{code:'42501'});
+    await db.exec('reset role');
+  });
   await t.test("на всех прикладных таблицах включена RLS, регистрация создаёт клиента",async()=>{
     assert.equal((await db.query<{n:number}>("select count(*)::int n from pg_tables where schemaname='public' and rowsecurity")).rows[0].n,18);
     await asUser(customer);
@@ -56,6 +77,29 @@ test("Phase 02 · PostgreSQL, RLS и Storage", async t => {
     assert.deepEqual((await db.query("select * from workshop_settings")).rows,[]);
     await assert.rejects(db.query("update profiles set role='maker' where id=$1",[customer]),{code:"42501"});
     await assert.rejects(save(),{code:"42501"});
+  });
+  await t.test('гостевые сохранения объединяются идемпотентно и принадлежат только аккаунту',async()=>{
+    await asUser(customer);
+    const add={id:randomUUID(),kind:'favorite',key:'night-library',value:'night-library'};
+    const sync=(ops:unknown[])=>db.query<{state:{favorites:string[];cart:unknown[]}}>('select roomlet_sync_saved_items($1::jsonb) as state',[JSON.stringify(ops)]);
+    assert.deepEqual((await sync([add,add])).rows[0].state.favorites,['night-library']);
+    await sync([{id:randomUUID(),kind:'favorite',key:add.key,value:null}]);
+    assert.deepEqual((await sync([add])).rows[0].state.favorites,[],'Retried old import must not undo a later removal');
+    const line={slug:'night-library',mode:'ready',window:null};
+    await sync([{id:randomUUID(),kind:'cart',key:'night-library:ready:',value:line}]);
+    assert.deepEqual((await sync([])).rows[0].state.cart,[line]);
+    await asUser(maker);
+    assert.deepEqual((await sync([])).rows[0].state,{favorites:[],cart:[],revision:'0'});
+    await asUser();await assert.rejects(sync([]),{code:'42501'});
+    await asUser(customer);
+    await assert.rejects(sync([{id:randomUUID(),kind:'cart',key:'bad',value:{...line,price:1}}]),{code:'22023'});
+    await asUser(maker);await sync([{id:randomUUID(),kind:'favorite',key:add.key,value:add.key}]);
+    await db.exec('reset role');
+    await db.query("insert into roomlet_private.telegram_account_transfers(source_id,target_id,telegram_id,proof_hash,previous_data) values ($1,$2,'saved-transfer-test','saved-proof','{}')",[customer,maker]);
+    await asUser(maker);
+    const merged=(await sync([])).rows[0].state;
+    assert.deepEqual(merged.favorites,[add.key],'Historical source removals must not erase target favorites');
+    assert.deepEqual(merged.cart,[line],'Only current live source items are merged');
   });
   await t.test("Telegram launch is consumed once and only by the backend",async()=>{
     const key = "a".repeat(64);

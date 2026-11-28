@@ -20,7 +20,7 @@ export function CartPage({ products }: { products: Product[] }) {
   const totals = new Map<string, number>();
   for (const line of cart) {
     const product = findProduct(products, line.slug);
-    if (product) totals.set(product.currency, (totals.get(product.currency) ?? 0) + product.priceMinor);
+    if (product?.status==='active' && (line.mode==='ready'?product.ready:product.made)) totals.set(product.currency, (totals.get(product.currency) ?? 0) + product.priceMinor);
   }
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -53,7 +53,6 @@ export function CartPage({ products }: { products: Product[] }) {
     setConfirmed(true);
     setError("");
   }
-  if (!demo) return <section className="store-page"><PageHeading title="Корзина" /><EmptyState variant="cart" title="Корзина пока пуста" description="Приём заказов пока закрыт." action={<Link className="store-primary-link" href="/catalog">В каталог</Link>} /></section>;
   return <section className="store-page store-narrow"><PageHeading title="Корзина" />
     {!cart.length ? <EmptyState variant={confirmed ? "saved" : "cart"} title={confirmed ? "Демо-заявка сохранена" : "Корзина пока пуста"} description={confirmed ? "Черновик доступен в разделе «Мои заказы»." : "Выберите готовую миниатюру или изготовление под заказ."} action={<Link href={confirmed ? "/profile/orders" : "/catalog"} className="store-primary-link">{confirmed ? "Мои заказы" : "В каталог"} <ArrowRight size={17} /></Link>} />
       : <><div>{cart.map(line => {
@@ -61,13 +60,13 @@ export function CartPage({ products }: { products: Product[] }) {
         if (!product) return <article key={lineKey(line)} className="store-cart-item"><p>Изделие больше недоступно</p><Button variant="quiet" onClick={() => removeLine(lineKey(line))}>Удалить</Button></article>;
         return <article className="store-cart-item" key={lineKey(line)}>
           <Link href={`/product/${line.slug}`} className="store-cart-image" tabIndex={-1} aria-hidden="true"><Photo photo={product.media[0]} sizes="96px" /></Link>
-          <div><Link href={`/product/${line.slug}`}>{product.title}</Link><p>{line.mode === "ready" ? "Готовый экземпляр" : `Под заказ · ${line.window}`}</p><ProductPrice product={product} /></div>
+          <div><Link href={`/product/${line.slug}`}>{product.title}</Link><p>{product.status!=='active'||(line.mode==='ready'?!product.ready:!product.made)?'Сейчас недоступно':line.mode === "ready" ? "Готовый экземпляр" : `Под заказ · ${line.window}`}</p><ProductPrice product={product} /></div>
           <IconButton label={`Удалить: ${product.title}`} onClick={() => { removeLine(lineKey(line)); setError(""); }}><Trash2 size={17} /></IconButton>
         </article>;})}</div>
         {totals.size > 0 && <div className="store-total"><span>Итого</span><div className="store-total-amounts">
           {Array.from(totals, ([currency, priceMinor]) => <ProductPrice key={currency} product={{currency, priceMinor}} />)}
         </div></div>}
-        {checkout ? <form className="store-form" onSubmit={submit}><h2>Демонстрационная заявка</h2>
+        {!demo ? <p className="store-small">Приём заказов пока закрыт. Изделия сохранены в корзине, цены и наличие обновляются при открытии.</p> : checkout ? <form className="store-form" onSubmit={submit}><h2>Демонстрационная заявка</h2>
           <p>Контакт нужен для примера оформления. Он останется только в форме.</p>
           <Input label="Контакт" name="contact" placeholder="Имя пользователя или электронная почта" required maxLength={120} autoComplete="off" />
           <Select name="method" label="Способ получения"><option>Самовывоз</option><option>Доставка</option></Select>

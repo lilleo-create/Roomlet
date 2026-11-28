@@ -24,7 +24,7 @@ const sessionFor=user=>({access_token:tokenFor(user),refresh_token:'fixture-refr
 const receipts=new Set(),sent=[];
 let emailGateState={};
 let verifiedEmail=false;
-let disconnectTesting=false,disconnectCount=0,disconnectPrepared=false,staleTelegramMapping=false;
+let disconnectTesting=false,disconnectCount=0,disconnectPrepared=false,staleTelegramMapping=false,unknownTelegram=false,creationPending=false;
 const realFetch=globalThis.fetch;
 globalThis.fetch=async(input,options)=>{
   if(String(input).startsWith('https://api.telegram.org/')) {
@@ -73,7 +73,9 @@ const backend=createServer(async(req,res)=>{
   if(req.url.startsWith('/rest/v1/profiles?')) return json(200,{display_name:'Test',role:currentUser.id===ownerUser.id?'owner':'customer',contact_email:null,contact_phone:null});
   if(req.url==='/rest/v1/rpc/roomlet_telegram_account_merged') return json(200,transferred && JSON.parse(body).p_user_id===customer);
   if(req.url==='/rest/v1/rpc/roomlet_telegram_detached') return json(200,false);
-  if(req.url==='/rest/v1/rpc/roomlet_telegram_account') return json(200,staleTelegramMapping?null:transferred?ownerUser.id:customer);
+  if(req.url==='/rest/v1/rpc/roomlet_telegram_account') return json(200,staleTelegramMapping||unknownTelegram?null:transferred?ownerUser.id:customer);
+  if(req.url==='/rest/v1/rpc/roomlet_claim_telegram_creation'){const created=creationPending;creationPending=false;return json(200,created);}
+  if(req.url==='/rest/v1/rpc/roomlet_sync_saved_items')return json(200,{favorites:[],cart:[]});
   if(req.url==='/rest/v1/rpc/roomlet_login_methods') return json(200,{email_ready:JSON.parse(body).p_user===ownerUser.id,telegram_ready:true});
   if(req.url==='/rest/v1/rpc/roomlet_prepare_disconnect') {
     assert.equal(req.headers.apikey,'private-fixture-key');
@@ -119,6 +121,7 @@ const backend=createServer(async(req,res)=>{
   }
   if (req.url === "/auth/v1/token?grant_type=id_token") {
     exchanges++;
+    if(unknownTelegram){unknownTelegram=false;creationPending=true;}
     const {id_token,nonce,provider,link_identity}=JSON.parse(body);
     assert.equal(provider,"custom:roomlet-telegram");
     assert.equal(req.headers.apikey,"public-fixture-key");
@@ -162,7 +165,7 @@ try {
       return res.end(`<h1>Изолированная проверка Telegram Web</h1><p>Тестовая подпись и локальная Auth API. Рабочая база не используется.</p><nav><a href="?mode=login">Mini App: вход</a> | <a href="?mode=root">Главная</a> | <a href="?mode=register">Регистрация</a> | <a href="?mode=invalid">Неверная подпись</a> | <a href="?mode=before">Серый экран до исправления</a></nav><iframe title="Roomlet Mini App" src="${source}" style="width:390px;height:760px;border:1px solid #ddd"></iframe>`);
     }
     // Only the loopback browser fixture translates the local HTTP origin to its HTTPS test issuer.
-    if(browserMode && req.headers.origin===`http://127.0.0.1:${frontend.address().port}`) req.headers.origin=issuer;
+    if((browserMode||process.argv.includes('--verify-link-form')) && req.headers.origin===`http://127.0.0.1:${frontend.address().port}` && req.url.startsWith('/api/')) req.headers.origin=issuer;
     return handler(req,res);
   });
   const base=await listen(frontend);
@@ -184,11 +187,17 @@ try {
   assert.equal((await post("login",issuer,"invalid")).status,401);
   assert.equal((await post("link")).status,401);
   assert.equal(stored.size,0);
+  unknownTelegram=true;
+  for(let attempt=0;attempt<2;attempt++) {
+    const guest=await post('auto');assert.equal(guest.status,200);assert.deepEqual(await guest.json(),{result:'guest'});
+    assert.equal(exchanges,0,'Opening the Mini App must not call native signup');
+    assert.equal(stored.size,0,'A new guest does not persist Telegram data or consume the future explicit proof');
+  }
   const login=await post("login");
-  assert.deepEqual(await login.json(),{result:"signed-in"});
+  assert.deepEqual(await login.json(),{result:"created"});
   const sessionCookies=login.headers.getSetCookie();
   assert.ok(sessionCookies.some(value=>value.startsWith('__Host-roomlet-mini=')));
-  for(const cookie of sessionCookies) for(const flag of ['secure','httponly','samesite=none','partitioned'])
+  for(const cookie of sessionCookies.filter(value=>value.startsWith('__Host-roomlet-mini='))) for(const flag of ['secure','httponly','samesite=none','partitioned'])
     assert.ok(cookie.toLowerCase().split(';').map(value=>value.trim()).includes(flag),'Mini App session must persist safely in a cross-site iframe: '+flag);
   const sessionCookie=sessionCookies.map(value=>value.split(';')[0]).join('; ');
   const sessionCheck=await fetch(base+'/api/telegram/session',{headers:{cookie:sessionCookie}});
@@ -198,6 +207,15 @@ try {
   const repeated=await fetch(base+'/api/telegram/session',{method:'POST',headers:{origin:issuer,'x-roomlet-intent':'login',cookie:sessionCookie},body:fields.toString()});
   assert.deepEqual(await repeated.json(),{result:'existing'});
   assert.equal(exchanges,1,'A preserved session must not create another account');
+  const receipt=sessionCookies.find(value=>value.startsWith('__Host-roomlet-launch='))?.split(';')[0];assert.ok(receipt);
+  const guestCookie='__Host-roomlet-guest=yes; '+receipt;
+  const optedOut=await fetch(base+'/api/telegram/session',{method:'POST',headers:{origin:issuer,'x-roomlet-intent':'auto',cookie:guestCookie},body:fields.toString()});
+  assert.deepEqual(await optedOut.json(),{result:'guest'});assert.equal(exchanges,1);
+  const explicitAgain=await fetch(base+'/api/telegram/session',{method:'POST',headers:{origin:issuer,'x-roomlet-intent':'login',cookie:guestCookie},body:fields.toString()});
+  assert.deepEqual(await explicitAgain.json(),{result:'signed-in'});
+  assert.ok(explicitAgain.headers.getSetCookie().some(value=>value.startsWith('__Host-roomlet-guest=;')&&value.includes('Max-Age=0')));
+  const replayReceipt=await fetch(base+'/api/telegram/session',{method:'POST',headers:{origin:issuer,'x-roomlet-intent':'login',cookie:guestCookie},body:fields.toString()});
+  assert.equal(replayReceipt.status,409,'A consumed browser receipt cannot be replayed');
   const profile=await fetch(base+'/profile/settings',{headers:{cookie:sessionCookie}});
   const profileHTML=await profile.text();
   assert.equal(profile.status,200);
@@ -258,7 +276,7 @@ try {
   ownerLaunch.set('hash',createHmac('sha256',secret).update([...ownerLaunch].map(([key,v])=>key+'='+v).join('\n')).digest('hex'));
   const ownerPost=(intent,account)=>fetch(base+'/api/telegram/session',{method:'POST',headers:{origin:issuer,'x-roomlet-intent':intent,'x-roomlet-account':account,cookie:ownerCookie},body:ownerLaunch.toString()});
   assert.deepEqual(await (await ownerPost('login',ownerUser.id)).json(),{result:'existing'});
-  assert.equal(exchanges,1,'Auto-login must preserve an existing email account without silently linking it');
+  assert.equal(exchanges,2,'Auto-login must preserve an existing email account without silently linking it');
   assert.equal((await ownerPost('link',customer)).status,401);
   const linked=await ownerPost('link',ownerUser.id);
   assert.deepEqual(await linked.json(),{result:'linked'});
@@ -396,6 +414,37 @@ try {
       assert.equal(ownerUser.identities[0].provider,'custom:roomlet-telegram');
       console.log('PASS: actual settings modal at six widths, disabled/consent/password/error states, native unlink via Server Action');
     } finally {await browser.close();disconnectTesting=false;}
+  }
+  if(process.argv.includes('--verify-link-form')) {
+    const {chromium,expect}=await import('@playwright/test');
+    const {mkdir}=await import('node:fs/promises');
+    await mkdir('.roomlet-demo/verify-guest',{recursive:true});
+    const browser=await chromium.launch({headless:true,...(process.platform==='win32'?{channel:'chrome'}:{})});
+    try {
+      transferred=false;unknownTelegram=true;
+      const before=exchanges,context=await browser.newContext({viewport:{width:390,height:844}});
+      const raw=mergeLaunch('guest-browser-explicit');
+      await context.route('https://telegram.org/js/telegram-web-app.js',route=>route.fulfill({contentType:'text/javascript',body:`window.Telegram={WebApp:{initData:${JSON.stringify(raw)},ready(){}}};`}));
+      const page=await context.newPage();
+      await page.goto(base+'/profile');
+      const button=page.getByRole('button',{name:'Продолжить через Telegram',exact:true});
+      await expect(button).toBeEnabled();assert.equal(exchanges,before,'Opening the real profile must not create an account');
+      await expect(page.locator('input[type=email]')).toHaveCount(0);
+      await expect(page.locator('a[href^="/api/telegram/login"]')).toHaveCount(0);
+      for(const width of [320,360,390,430,768,1440]){
+        await page.setViewportSize({width,height:844});
+        assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+        await page.screenshot({path:'.roomlet-demo/verify-guest/profile-'+width+'.png',fullPage:true,animations:'disabled'});
+      }
+      await page.setViewportSize({width:390,height:844});
+      await button.click();
+      await expect(page.getByRole('button',{name:'Выйти из аккаунта'})).toBeVisible();
+      assert.equal(exchanges,before+1,'One explicit click creates one customer session');
+      await page.screenshot({path:'.roomlet-demo/verify-guest/registered-390.png',fullPage:true,animations:'disabled'});
+      await page.reload();await expect(page.getByRole('button',{name:'Выйти из аккаунта'})).toBeVisible();
+      assert.equal(exchanges,before+1,'Reopening an authenticated profile reuses its session');
+      console.log('PASS: actual profile at six widths, guest has no email/OIDC forms, explicit Telegram button and preserved session');
+    } finally {unknownTelegram=false;await browser.close();}
   }
   console.log("PASS: discovery, JWKS, same-origin, signature, link guard, native ID-token exchange, SSR cookie and replay");
   console.log('PASS: webhook secret, duplicate command, catalog button, OIDC PKCE redirect, secure cookie and callback guard');

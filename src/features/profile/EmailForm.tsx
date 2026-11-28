@@ -9,7 +9,8 @@ import { Checkbox } from '@/components/Checkbox';
 import type { RegistrationDocuments } from './registration-documents';
 import { submitEmail, type EmailState } from "./email-actions";
 import { authHref, type AuthMode } from "./auth-paths";
-import { TelegramSessionStatus, useTelegramSession } from "./TelegramSession";
+import { useTelegramSession } from "./TelegramSession";
+import {GuestLogin} from './GuestLogin';
 
 const screens = {
   login: { title: "С возвращением.", description: "Войдите, чтобы продолжить.", submit: "Войти", pending: "Входим…" },
@@ -60,7 +61,7 @@ export function EmailForm({ mode, next, code, localProof, flowId, recovered, dem
     <a className="account-text-link" href="https://t.me/roomlet_shop_bot">Открыть бота Roomlet</a>
   </section>;
   if (telegram.mini && !linking && disconnected!=='telegram' && telegram.status!=='detached' && (mode === "login" || mode === "register"))
-    return <section className="account-page"><TelegramSessionStatus /></section>;
+    return <section className="account-page"><GuestLogin next={next} privacyUrl={documents?.privacy.url} compact /></section>;
 
   return <section className="account-page">
     <div className="account-top"><Link href="/" className="store-logo" aria-label="Roomlet — главная">roomlet<span aria-hidden>.</span></Link>

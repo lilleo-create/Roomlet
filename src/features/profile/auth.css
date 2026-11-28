@@ -10,7 +10,8 @@
 .account-heading h1 { margin: 0; font: 600 clamp(24px,6.4vw,28px)/1.18 var(--font-display); letter-spacing: -.035em; }
 .account-heading p { margin: 8px 0 0; color: #706C65; font-size: 14px; line-height: 1.5; text-wrap: pretty; }
 .account-body, .account-form, .account-receipt { display: grid; min-width: 0; gap: 12px; }
-.account-page .account-telegram { display: flex; justify-content: center; align-items: center; gap: 10px; width: 100%; min-height: 52px; padding: 12px; background: #151515; color: #fff; border: 1px solid #151515; border-radius: 8px; font: 600 14px/1.35 var(--font-body); text-align: center; text-decoration: none; }
+.account-page .account-telegram, .profile-telegram-entry .account-telegram { display: flex; justify-content: center; align-items: center; gap: 10px; width: 100%; min-height: 52px; padding: 12px; background: #151515; color: #fff; border: 1px solid #151515; border-radius: 8px; font: 600 14px/1.35 var(--font-body); text-align: center; text-decoration: none; }
+.profile-telegram-entry { display:grid;gap:12px;margin-bottom:var(--space-5); }
 .account-telegram svg { flex: none; }
 .account-telegram:disabled { background: #E7E2D9; color: #8D877E; border-color: #D8D1C7; opacity: 1; }
 .account-method > p { margin: 6px 0 0; color: #706C65; font-size: 12px; text-align: center; }

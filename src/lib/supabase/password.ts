@@ -2,6 +2,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createRoomletClient } from "./server";
+import {chooseGuest} from '@/lib/telegram/guest.server';
 
 export async function passwordLogin(form: FormData, area: "/profile" | "/studio") {
   const email = String(form.get("email") ?? "").trim();
@@ -22,6 +23,12 @@ export async function endSession(destination: "/profile" | "/studio/login") {
   const client = await createRoomletClient();
   const { error } = await client.auth.signOut({ scope: "local" });
   if (error) throw new Error("Не удалось завершить сеанс. Попробуйте ещё раз.");
+  // Both cookie namespaces can exist after linking from the web account.
+  // Do not let logout reveal an older email session underneath the Mini App.
+  const web=await createRoomletClient('web');
+  const webResult=await web.auth.signOut({scope:'local'});
+  if(webResult.error)throw Error('Не удалось завершить сеанс. Попробуйте ещё раз.');
+  await chooseGuest(true);
   (await cookies()).delete("roomlet-environment");
   redirect(destination);
 }

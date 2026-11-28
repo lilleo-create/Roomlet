@@ -1,4 +1,5 @@
 export const eventNames = [
+  'guest_session_started','auth_started','auth_completed','account_created','auth_failed',
   "mini_app_open", "home_view", "catalog_view", "product_view", "search",
   "filter_apply", "gallery_swipe", "image_zoom", "favorite_add", "favorite_remove",
   "add_to_cart", "booking_calendar_view", "booking_window_select", "booking_requested",

@@ -8,7 +8,7 @@ import type { TelegramLaunch } from './init-data.server';
 import { rememberLinkTicket } from './link-ticket.server';
 import { telegramFailure, telegramTrace } from './diagnostics.server';
 
-export async function exchangeTelegram(launch:TelegramLaunch,intent:'login'|'link',accountId?:string|null,mini = false,allowTransfer = false,trace?:string) {
+export async function exchangeTelegram(launch:TelegramLaunch,intent:'login'|'link',accountId?:string|null,mini = false,allowTransfer = false,trace?:string,allowCreate=true) {
   const record=(stage:string,outcome:'ok'|'begin'|'required'|'rejected'='ok')=>{if(trace) telegramTrace(trace,stage,outcome);};
   const reply=(status:number,result:string)=>{record('exchange-'+result,status===200?'ok':result==='merge-required'?'required':'rejected');return {status,result};};
   const client=await createRoomletClient();
@@ -33,7 +33,12 @@ export async function exchangeTelegram(launch:TelegramLaunch,intent:'login'|'lin
     record('link-permission-checked');
     if(identity) return identity.identity_data?.sub==='tg:'+launch.telegramId?reply(200,'linked'):reply(409,'conflict');
   }
+  let knownAccount:string|null=null;
   if(intent==='login') {
+    const known=await telegramAdmin().rpc('roomlet_telegram_account',{p_telegram_id:launch.telegramId});
+    if(known.error) return reply(503,'storage');
+    knownAccount=typeof known.data==='string'?known.data:null;
+    if(!knownAccount && !allowCreate) return reply(200,'guest');
     const detached=await telegramAdmin().rpc('roomlet_telegram_detached',{p_telegram_id:launch.telegramId});
     if(detached.error) return reply(503,'storage');
     if(detached.data===true) return reply(409,'detached');
@@ -91,5 +96,9 @@ export async function exchangeTelegram(launch:TelegramLaunch,intent:'login'|'lin
     }
   }
   record('supabase-session-created');
+  if(intent==='login' && !knownAccount) {
+    const created=await telegramAdmin().rpc('roomlet_claim_telegram_creation',{p_telegram_id:launch.telegramId,p_user:result.data.user.id});
+    if(!created.error && created.data===true) return reply(200,'created');
+  }
   return reply(200,intent==='link'?'linked':'signed-in');
 }

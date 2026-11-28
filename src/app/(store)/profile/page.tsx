@@ -6,6 +6,8 @@ import { readAccount } from "@/features/profile/session";
 import { leaveProfile } from "./actions";
 import {readSupportUsername} from "@/lib/telegram/support.server";
 import {supportLink} from "@/lib/telegram/support";
+import {GuestLogin} from '@/features/profile/GuestLogin';
+import {readRegistrationDocuments} from '@/features/profile/registration-documents.server';
 
 type MenuItem = { label: string; icon: LucideIcon; href?: string };
 
@@ -46,7 +48,7 @@ export default async function ProfilePage() {
         <p className="profile-role">Личный кабинет</p>
       </div>
     </div>
-    {!account && <div className="profile-guest-actions"><Link className="store-primary-link" href="/profile/login">Войти <ArrowUpRight size={16} aria-hidden /></Link><Link className="profile-signin" href="/profile/register">Создать аккаунт</Link></div>}
+    {!account && <GuestLogin privacyUrl={(await readRegistrationDocuments())?.privacy.url} />}
     {staff && <Link href="/studio" className="profile-studio">
       <span className="profile-studio-icons"><LayoutGrid size={22} strokeWidth={1.7} aria-hidden /><ArrowUpRight size={18} aria-hidden /></span>
       <span className="profile-studio-title">Roomlet Studio</span>

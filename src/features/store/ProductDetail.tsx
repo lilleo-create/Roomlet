@@ -13,7 +13,7 @@ import type { Product } from "./products";
 import { lineKey, type PurchaseMode, useStore } from "./StoreProvider";
 
 export function ProductDetail({ product }: { product: Product }) {
-  const { addLine, cart, demo, favorites, toggleFavorite } = useStore();
+  const { addLine, cart, demo } = useStore();
   const [mode, setMode] = useState<PurchaseMode>(product.ready ? "ready" : "made");
   const [slot, setSlot] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -54,7 +54,7 @@ export function ProductDetail({ product }: { product: Product }) {
     {product.status === "active" && <aside className="store-purchase-bar" aria-label={demo ? "Добавление в корзину" : "Стоимость и избранное"}>
       {error && <p role="alert">{error}</p>}
       <div><ProductPrice product={product} />
-      {!demo ? <Button variant="secondary" aria-pressed={favorites.includes(product.slug)} onClick={() => { toggleFavorite(product.slug); track(favorites.includes(product.slug) ? "favorite_remove" : "favorite_add", {product: product.slug}); }}>{favorites.includes(product.slug) ? "В избранном" : "В избранное"}</Button> : inCart ? <Link className="store-primary-link" href="/cart"><Check size={17} />В корзине <ArrowRight size={16} /></Link>
+      {inCart ? <Link className="store-primary-link" href="/cart"><Check size={17} />В корзине <ArrowRight size={16} /></Link>
         : <Button disabled={mode === "made" && !slot} onClick={add}><ShoppingBag size={18} />В корзину</Button>}</div>
     </aside>}
   </div>;
