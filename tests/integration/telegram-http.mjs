@@ -8,6 +8,15 @@ import next from "next";
 const {publicKey,privateKey} = generateKeyPairSync("rsa",{modulusLength:2048});
 const botToken="fixture-bot-token", issuer="https://mini.example", customer="37d39ed5-04b4-48fa-a8bb-6db339ce4e1b";
 const stored = new Set();
+const receipts=new Set(),sent=[];
+const realFetch=globalThis.fetch;
+globalThis.fetch=async(input,options)=>{
+  if(String(input).startsWith('https://api.telegram.org/')) {
+    sent.push(JSON.parse(options.body));
+    return Response.json({ok:true,result:{message_id:1}});
+  }
+  return realFetch(input,options);
+};
 const jsonPart = data => Buffer.from(JSON.stringify(data)).toString("base64url");
 async function listen(server) {
   server.listen(0,"127.0.0.1"); await once(server,"listening"); return "http://127.0.0.1:"+server.address().port;
@@ -15,6 +24,12 @@ async function listen(server) {
 const backend=createServer(async(req,res)=>{
   const json=(status,data)=>{res.writeHead(status,{"content-type":"application/json"});res.end(JSON.stringify(data));};
   let body="";for await (const part of req) body+=part;
+  if(req.url==='/rest/v1/rpc/claim_telegram_update') {
+    const {event_id}=JSON.parse(body);
+    const unused=!receipts.has(event_id);receipts.add(event_id);
+    return json(200,unused);
+  }
+  if(req.url==='/rest/v1/rpc/finish_telegram_update') return json(200,null);
   if (req.url === "/rest/v1/rpc/consume_telegram_launch") {
     assert.equal(req.headers.apikey,"private-fixture-key");
     const {proof_hash}=JSON.parse(body);
@@ -37,8 +52,9 @@ const backend=createServer(async(req,res)=>{
 });
 const backendURL=await listen(backend);
 Object.assign(process.env,{NEXT_PUBLIC_SUPABASE_URL:backendURL,NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:"public-fixture-key",
-  SUPABASE_SECRET_KEY:"private-fixture-key",ROOMLET_SITE_URL:issuer,ROOMLET_TELEGRAM_ENABLED:"true",ROOMLET_TELEGRAM_BOT_TOKEN:botToken,
+  SUPABASE_SECRET_KEY:"private-fixture-key",ROOMLET_SITE_URL:issuer,ROOMLET_TELEGRAM_ENABLED:"true",TELEGRAM_BOT_TOKEN:botToken,
   ROOMLET_TELEGRAM_SIGNING_KEY:Buffer.from(privateKey.export({format:"pem",type:"pkcs8"})).toString("base64"),NODE_ENV:"production"});
+Object.assign(process.env,{TELEGRAM_WEBHOOK_SECRET:'fixture-webhook-secret-1234567890123456',TELEGRAM_OIDC_CLIENT_ID:'9290085948',TELEGRAM_OIDC_CLIENT_SECRET:'fixture-client-secret'});
 const app=next({dev:false});
 let frontend;
 try {
@@ -61,7 +77,29 @@ try {
   assert.deepEqual(await login.json(),{result:"signed-in"});
   assert.match(login.headers.get("set-cookie")??"",/auth-token/);
   assert.equal((await post("login")).status,409);
+  const update={update_id:7,message:{chat:{id:12345,type:'private'},from:{id:12345,is_bot:false},text:'/shop'}};
+  const webhook=secret=>fetch(base+'/api/telegram/webhook',{method:'POST',headers:{'x-telegram-bot-api-secret-token':secret},body:JSON.stringify(update)});
+  assert.equal((await webhook('wrong')).status,403);
+  assert.equal(sent.length,0);
+  assert.equal((await webhook(process.env.TELEGRAM_WEBHOOK_SECRET)).status,200);
+  assert.equal((await webhook(process.env.TELEGRAM_WEBHOOK_SECRET)).status,200);
+  assert.equal(sent.length,1);
+  assert.equal(sent[0].chat_id,12345);
+  assert.equal(new URL(sent[0].reply_markup.inline_keyboard[0][0].web_app.url).searchParams.get('next'),'/catalog');
+  const web=await fetch(base+'/api/telegram/login?next=/catalog',{redirect:'manual'});
+  assert.equal(web.status,303);
+  assert.equal(new URL(web.headers.get('location')).origin,'https://oauth.telegram.org');
+  const attributes=web.headers.get('set-cookie').split(';').slice(1).map(value=>value.trim().toLowerCase());
+  assert.ok(web.headers.get('set-cookie').startsWith('__Host-roomlet-telegram-flow='));
+  for(const flag of ['secure','httponly','samesite=lax','path=/']) assert.ok(attributes.includes(flag));
+  assert.equal((await fetch(base+'/api/telegram/login',{method:'POST',headers:{origin:'https://evil.example'},redirect:'manual'})).status,403);
+  const invalidCallback=await fetch(base+'/api/telegram/login/callback?code=invalid&state=invalid',{redirect:'manual'});
+  assert.equal(new URL(invalidCallback.headers.get('location')).pathname,'/profile/login');
   console.log("PASS: discovery, JWKS, same-origin, signature, link guard, native ID-token exchange, SSR cookie and replay");
+  console.log('PASS: webhook secret, duplicate command, catalog button, OIDC PKCE redirect, secure cookie and callback guard');
+} catch(error) {
+  console.error('Telegram integration test failed:',error.message);
+  process.exitCode=1;
 } finally {
   for(const server of [frontend,backend]) if(server?.listening){server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
   await app.close();

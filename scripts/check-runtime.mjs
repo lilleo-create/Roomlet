@@ -28,7 +28,7 @@ if (validOrigin(url) && key?.startsWith("sb_publishable_")) {
   }
 }
 if (process.env.ROOMLET_TELEGRAM_ENABLED==="true") {
-  report("Bot token present",Boolean(process.env.ROOMLET_TELEGRAM_BOT_TOKEN));
+  report("Bot token present",Boolean(process.env.TELEGRAM_BOT_TOKEN));
   report("Supabase server key present",Boolean(process.env.SUPABASE_SECRET_KEY));
   try {
     const privateKey=createPrivateKey(Buffer.from(process.env.ROOMLET_TELEGRAM_SIGNING_KEY??"","base64"));

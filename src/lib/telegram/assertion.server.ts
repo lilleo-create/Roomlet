@@ -26,7 +26,9 @@ export function createAssertion(launch: TelegramLaunch, origin: string, keys: Re
   const header = { alg:"RS256", typ:"JWT", kid:keys.jwk.kid };
   const claims = { iss:issuerOrigin(origin), sub:"tg:" + launch.telegramId, aud:audience, iat:now,
     exp:Math.min(launch.expiresAt, now+60), nonce:createHash("sha256").update(nonce).digest("hex"),
-    ...(launch.displayName && {name:launch.displayName}) };
+    ...(launch.displayName && {name:launch.displayName}),
+    ...(launch.photoUrl && {picture:launch.photoUrl}),
+    ...(launch.username && {preferred_username:launch.username}) };
   const payload = [header, claims].map(value=>Buffer.from(JSON.stringify(value)).toString("base64url")).join(".");
   return {provider, nonce, token: payload + "." + sign("RSA-SHA256",Buffer.from(payload),keys.key).toString("base64url")};
 }

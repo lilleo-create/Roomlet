@@ -1,0 +1,61 @@
+.roomlet-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  min-height: 100%;
+  overflow: hidden;
+  background: var(--canvas);
+  color: var(--ink);
+  opacity: 1;
+  transition: opacity 220ms ease;
+  padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+}
+.roomlet-splash[data-leaving="true"] { opacity: 0; }
+.roomlet-splash-center { transform: translateY(-3vh); }
+.roomlet-splash-word {
+  position: relative;
+  display: inline-flex;
+  white-space: nowrap;
+  font: 800 clamp(60px, 18.5vw, 88px)/1.18 var(--font-display), sans-serif;
+  letter-spacing: -.083em;
+  padding-right: .09em;
+}
+.roomlet-splash-letter {
+  display: inline-block;
+  animation: roomlet-part-in 480ms cubic-bezier(.2,.7,.2,1) both;
+  animation-delay: calc(var(--part) * 40ms);
+}
+.roomlet-splash-dot { color: var(--primary); }
+.roomlet-splash-sheen {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  color: transparent;
+  background: linear-gradient(110deg, transparent 40%, rgb(246 242 234 / .65) 50%, transparent 60%) 140% 0 / 300% 100% no-repeat;
+  background-clip: text;
+  -webkit-background-clip: text;
+  animation: roomlet-sheen 5s 760ms ease-in-out infinite both;
+}
+.roomlet-splash[data-variant="expressive"] .roomlet-splash-letter {
+  animation-name: roomlet-part-assemble;
+  animation-duration: 560ms;
+  animation-delay: calc(var(--part) * 45ms);
+}
+.roomlet-splash[data-variant="expressive"] .roomlet-splash-dot { animation-name: roomlet-dot-in; }
+.roomlet-splash[data-variant="expressive"] .roomlet-splash-sheen { animation-delay: 880ms; }
+.roomlet-splash-slow { position: absolute; bottom: max(48px, env(safe-area-inset-bottom)); left: 20px; right: 20px; text-align: center; }
+.roomlet-splash-slow p { color: var(--muted); font: var(--small); margin: 0 0 8px; }
+.roomlet-splash-slow button { min-height: 44px; padding: 8px 12px; background: transparent; border: 0; text-decoration: underline; text-underline-offset: 4px; font: var(--small); }
+@keyframes roomlet-part-in { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes roomlet-part-assemble { from { opacity: 0; transform: translate(calc(var(--direction) * 9px), calc(var(--direction) * 16px)); } to { opacity: 1; transform: translate(0, 0); } }
+@keyframes roomlet-dot-in { from { opacity: 0; transform: translateY(-14px) scale(.45); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes roomlet-sheen { 0% { background-position: 140% 0; opacity: 0; } 1% { opacity: 1; } 5% { opacity: 1; } 6%, 100% { background-position: -40% 0; opacity: 0; } }
+.roomlet-splash[data-reduced="true"] .roomlet-splash-letter { animation: none; }
+.roomlet-splash[data-reduced="true"] .roomlet-splash-sheen { display: none; }
+.roomlet-splash[data-reduced="true"] { transition-duration: 80ms; }
+@media (prefers-reduced-motion: reduce) {
+  .roomlet-splash-letter { animation: none !important; }
+  .roomlet-splash-sheen { display: none; }
+}

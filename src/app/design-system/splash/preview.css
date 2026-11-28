@@ -1,0 +1,23 @@
+.splash-comparison { max-width: 1040px; margin: auto; padding: 32px 20px 60px; }
+.splash-preview-brand { font: 800 32px/1 var(--font-display); letter-spacing: -.083em; text-decoration: none; }
+.splash-preview-brand span { color: var(--primary); }
+.splash-comparison h1 { font: var(--h1); margin: 32px 0 8px; }
+.splash-comparison header p, .splash-preview-grid section > p { color: var(--muted); font: var(--small); margin: 0 0 20px; }
+.splash-preview-controls { display: flex; align-items: end; flex-wrap: wrap; gap: 16px; padding: 20px 0 32px; }
+.splash-preview-controls label { display: grid; gap: 8px; font: var(--small); }
+.splash-preview-controls select, .splash-preview-controls button { min-height: 44px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface); font: var(--small); max-width: 100%; }
+.splash-preview-controls button { color: var(--on-primary); border-color: var(--primary); background: var(--primary); }
+.splash-preview-controls .splash-preview-check { display: flex; align-items: center; min-height: 44px; }
+.splash-preview-check input { width: 18px; height: 18px; accent-color: var(--primary); }
+.splash-preview-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 390px)); justify-content: space-between; gap: 40px; }
+.splash-preview-heading { display: flex; align-items: baseline; flex-wrap: wrap; gap: 12px; margin-bottom: 8px; }
+.splash-preview-heading > span { color: var(--muted); font: var(--caption); }
+.splash-preview-heading h2 { font: var(--h3); margin: 0; }
+.splash-preview-heading small { font: var(--caption); color: var(--primary); }
+.splash-preview-grid iframe { display: block; width: 100%; border: 1px solid var(--border); border-radius: 4px; background: var(--canvas); }
+.splash-frame[data-still="true"] .roomlet-splash-letter { animation-play-state: paused; animation-delay: calc(var(--part) * 40ms - var(--preview-time)); }
+.splash-frame[data-still="true"] [data-variant="expressive"] .roomlet-splash-letter { animation-delay: calc(var(--part) * 45ms - var(--preview-time)); }
+.splash-frame[data-still="true"] .roomlet-splash-sheen { animation-play-state: paused; animation-delay: calc(760ms - var(--preview-time)); }
+.splash-frame[data-still="true"] [data-variant="expressive"] .roomlet-splash-sheen { animation-delay: calc(880ms - var(--preview-time)); }
+.splash-frame[data-still="true"] .roomlet-splash-slow { display: none; }
+@media (max-width: 800px) { .splash-preview-grid { grid-template-columns: minmax(0, 390px); justify-content: center; } }

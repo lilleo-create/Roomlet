@@ -1,0 +1,38 @@
+import 'server-only';
+import { isAuthSessionMissingError } from '@supabase/supabase-js';
+import { createRoomletClient } from '@/lib/supabase/server';
+import { issuerConfig } from './config.server';
+import { createAssertion, provider, recentlyAuthenticated } from './assertion.server';
+import { telegramAdmin } from './http.server';
+import type { TelegramLaunch } from './init-data.server';
+
+export async function exchangeTelegram(launch:TelegramLaunch,intent:'login'|'link',accountId?:string|null) {
+  const reply=(status:number,result:string)=>({status,result});
+  const client=await createRoomletClient();
+  const {data:{user},error}=await client.auth.getUser();
+  if(error && !isAuthSessionMissingError(error)) return reply(401,'session');
+  const identity=user?.identities?.find(identity=>identity.provider===provider);
+  if(intent==='login' && user) {
+    if(identity && identity.identity_data?.sub!=='tg:'+launch.telegramId) return reply(409,'conflict');
+    return reply(200,'existing');
+  }
+  if(intent==='link') {
+    if(!user || !user.email || accountId!==user.id) return reply(401,'reauth');
+    const {data}=await client.auth.getClaims();
+    if(data?.claims.sub!==user.id || !recentlyAuthenticated(data.claims.amr)) return reply(401,'reauth');
+    if(identity) return identity.identity_data?.sub==='tg:'+launch.telegramId?reply(200,'linked'):reply(409,'conflict');
+  }
+  const used=await telegramAdmin().rpc('consume_telegram_launch',{proof_hash:launch.replayKey,valid_until:new Date(launch.expiresAt*1000).toISOString()});
+  if(used.error) return reply(503,'storage');
+  if(used.data!==true) return reply(409,'reopen');
+  const {origin,keys}=issuerConfig();
+  const credentials=createAssertion(launch,origin,keys);
+  const result=intent==='link'?await client.auth.linkIdentity(credentials):await client.auth.signInWithIdToken(credentials);
+  if(result.error || !result.data.user || !result.data.session)
+    return reply(result.error?.code==='identity_already_exists'?409:503,result.error?.code==='identity_already_exists'?'conflict':'exchange');
+  if(intent==='link' && result.data.user.id!==user?.id) {
+    await client.auth.signOut({scope:'local'});
+    return reply(403,'session');
+  }
+  return reply(200,intent==='link'?'linked':'signed-in');
+}

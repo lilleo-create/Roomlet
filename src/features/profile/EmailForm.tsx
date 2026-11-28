@@ -25,8 +25,8 @@ function hasMailError() {
   return params.has("error") || params.has("error_code");
 }
 
-export function EmailForm({ mode, next, code, localProof, flowId, recovered, demo, invalidLink, miniAvailable }: {
-  mode: AuthMode; next: string; code?: string; localProof?: string; flowId?: string; recovered: boolean; demo: boolean; invalidLink: boolean; miniAvailable: boolean;
+export function EmailForm({ mode, next, code, localProof, flowId, recovered, demo, invalidLink, miniAvailable, telegramError }: {
+  mode: AuthMode; next: string; code?: string; localProof?: string; flowId?: string; recovered: boolean; demo: boolean; invalidLink: boolean; miniAvailable: boolean; telegramError?:boolean;
 }) {
   const [state, action, pending] = useActionState(submitEmail, initial);
   const expiredFragment = useSyncExternalStore(subscribeHash, hasMailError, () => false);
@@ -66,13 +66,14 @@ export function EmailForm({ mode, next, code, localProof, flowId, recovered, dem
         <Link className="account-text-link" href={authHref("login", next)}>Вернуться ко входу</Link>
       </div> : <div className="account-body">
         {(mode === "login" || mode === "register") && <div className="account-method">
-          {miniAvailable ? <a className="account-telegram" href="https://t.me/roomlet_shop_bot?startapp">
-            <Send size={20} aria-hidden /><span>Открыть магазин в Telegram</span></a> : <>
+          {miniAvailable ? <a className="account-telegram" href={"/api/telegram/login?next="+encodeURIComponent(next)}>
+            <Send size={20} aria-hidden /><span>Войти через Telegram</span></a> : <>
           <button className="account-telegram" type="button" disabled aria-describedby="telegram-availability">
             <Send size={20} aria-hidden /><span>{mode === "login" ? "Войти через Telegram" : "Продолжить с Telegram"}</span></button>
           <p id="telegram-availability">Вход через Telegram пока недоступен.</p></>}
           <div className="account-divider"><span>По электронной почте</span></div>
         </div>}
+        {telegramError && <p className="account-error" role="alert">Вход через Telegram не завершён. Попробуйте ещё раз или войдите по почте.</p>}
         {recovered && <p className="account-notice" role="status">Пароль изменён. Войдите с новым паролем.</p>}
         {(invalidLink || expiredFragment) && <p className="account-error" role="alert">Ссылка недействительна или истекла. Запросите новое письмо.</p>}
         {mode === "recover" && !code && !demo ? <p className="account-notice">Откройте ссылку восстановления из письма Supabase в том же браузере.</p> : <form className="account-form" action={action} aria-busy={pending}>
