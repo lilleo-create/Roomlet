@@ -25,7 +25,7 @@ test('official Telegram JWT maps signed numeric id to the same Mini App identity
   assert.equal(launch.telegramId,'12345');
   assert.equal(launch.photoUrl,'https://example.com/avatar.jpg');
   await assert.rejects(verifyTelegramToken(token,'wrong-audience','nonce',keys));
-  await assert.rejects(verifyTelegramToken(token,'9290085948','wrong-nonce',keys));
+  await assert.rejects(verifyTelegramToken(token,'9290085948','wrong-nonce',keys), {code:'TELEGRAM_NONCE_MISMATCH'});
   const missingId=await new SignJWT({nonce:'nonce'}).setProtectedHeader({alg:'RS256',kid:'test'})
     .setIssuer('https://oauth.telegram.org').setAudience('9290085948').setSubject('12345').setIssuedAt().setExpirationTime('5m').sign(privateKey);
   await assert.rejects(verifyTelegramToken(missingId,'9290085948','nonce',keys));

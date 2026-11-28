@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-export type LinkTicket = { accountId: string; telegramId: string; proof: string; expiresAt: number };
+export type LinkTicket = { accountId: string; telegramId: string; proof: string; expiresAt: number; trace?: string };
 export function sealLinkTicket(ticket: LinkTicket, secret: string) {
   const body = Buffer.from(JSON.stringify(ticket)).toString('base64url');
   return body + '.' + createHmac('sha256', secret).update('telegram-link-confirmation:' + body).digest('base64url');

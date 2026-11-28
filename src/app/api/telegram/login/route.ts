@@ -5,6 +5,7 @@ import { authDestination } from '@/features/profile/auth-paths';
 import { webTelegramConfig } from '@/lib/telegram/config.server';
 import { recentlyAuthenticated } from '@/lib/telegram/assertion.server';
 import { authorizationUrl, createWebFlow, sealWebFlow } from '@/lib/telegram/oidc';
+import { telegramTrace } from '@/lib/telegram/diagnostics.server';
 
 export async function GET(request:Request) {
   try {
@@ -42,8 +43,10 @@ export async function POST(request:Request) {
   } catch {return new Response('Привязка Telegram пока недоступна.',{status:503,headers:{'Cache-Control':'no-store'}});}
 }
 async function start(config:ReturnType<typeof webTelegramConfig>,flow:ReturnType<typeof createWebFlow>) {
+  telegramTrace(flow.trace!,flow.intent==='link'?'link-request-authorized':'login-request-created');
   (await cookies()).set('__Host-roomlet-telegram-flow',sealWebFlow(flow,config.flowSecret),{httpOnly:true,secure:true,sameSite:'lax',path:'/',maxAge:300});
   const response=NextResponse.redirect(authorizationUrl(flow,config.clientId,config.callback),303);
+  telegramTrace(flow.trace!,'telegram-redirect');
   response.headers.set('Cache-Control','private, no-store');
   response.headers.set('Referrer-Policy','no-referrer');
   return response;

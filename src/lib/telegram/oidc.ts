@@ -1,13 +1,13 @@
-import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { createRemoteJWKSet, customFetch, jwtVerify, type JWTVerifyGetKey } from 'jose';
 import { telegramRequest } from './transport.ts';
 import type { TelegramLaunch } from './init-data.server.ts';
 
 const issuer='https://oauth.telegram.org';
 const telegramKeys=createRemoteJWKSet(new URL(issuer+'/.well-known/jwks.json'),{[customFetch]:()=>telegramRequest('/.well-known/jwks.json')});
-export type WebFlow={intent:'login'|'link';accountId:string|null;next:string;state:string;nonce:string;verifier:string;expiresAt:number;allowTransfer?:boolean};
+export type WebFlow={intent:'login'|'link';accountId:string|null;next:string;state:string;nonce:string;verifier:string;expiresAt:number;allowTransfer?:boolean;trace?:string};
 export function createWebFlow(intent:WebFlow['intent'],accountId:string|null,next:string,now=Math.floor(Date.now()/1000)):WebFlow {
-  return {intent,accountId,next,state:randomBytes(32).toString('base64url'),nonce:randomBytes(32).toString('base64url'),verifier:randomBytes(32).toString('base64url'),expiresAt:now+300};
+  return {intent,accountId,next,state:randomBytes(32).toString('base64url'),nonce:randomBytes(32).toString('base64url'),verifier:randomBytes(32).toString('base64url'),expiresAt:now+300,trace:randomUUID().slice(0,8)};
 }
 export function sealWebFlow(flow:WebFlow,secret:string) {
   const payload=Buffer.from(JSON.stringify(flow)).toString('base64url');
@@ -31,9 +31,14 @@ export function authorizationUrl(flow:WebFlow,clientId:string,callback:string) {
     state:flow.state,nonce:flow.nonce,code_challenge:createHash('sha256').update(flow.verifier).digest('base64url'),code_challenge_method:'S256'}).toString();
   return url.href;
 }
-export async function verifyTelegramToken(token:string,clientId:string,nonce:string,keys:JWTVerifyGetKey=telegramKeys):Promise<TelegramLaunch> {
+export async function verifyTelegramToken(token:string,clientId:string,nonce:string,keys:JWTVerifyGetKey=telegramKeys,onVerified?:(stage:'token-signature-claims'|'token-nonce'|'token-identity')=>void):Promise<TelegramLaunch> {
   const {payload}=await jwtVerify(token,keys,{issuer,audience:clientId,algorithms:['RS256'],requiredClaims:['sub','iat','exp','nonce','id'],maxTokenAge:'5m',clockTolerance:10});
-  if(payload.nonce!==nonce || !Number.isSafeInteger(payload.id) || (payload.id as number)<=0) throw Error('Invalid Telegram identity');
+  onVerified?.('token-signature-claims');
+  if(payload.nonce!==nonce) throw Object.assign(Error('Invalid Telegram nonce'),{code:'TELEGRAM_NONCE_MISMATCH'});
+  onVerified?.('token-nonce');
+  if(!Number.isSafeInteger(payload.id) || (payload.id as number)<=0)
+    throw Object.assign(Error('Invalid Telegram identity'),{code:typeof payload.id==='string'?'TELEGRAM_ID_STRING':'TELEGRAM_ID_INVALID'});
+  onVerified?.('token-identity');
   const photo=typeof payload.picture==='string' && payload.picture.length<=2048 && URL.canParse(payload.picture)?new URL(payload.picture):null;
   return {telegramId:String(payload.id),displayName:typeof payload.name==='string'?payload.name.slice(0,256):null,
     username:typeof payload.preferred_username==='string'?payload.preferred_username.slice(0,64):null,
