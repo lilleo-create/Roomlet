@@ -3,6 +3,19 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {PGlite} from '@electric-sql/pglite';
 
+test('Telegram signup without email creates a customer and ignores claimed privileged roles',async()=>{
+  const db=new PGlite();
+  try {
+    await db.exec('create schema auth; create role anon; create role authenticated; create table auth.users(id uuid primary key,email text,raw_user_meta_data jsonb);');
+    const migration=await readFile(new URL('../supabase/migrations/20261127131031_roomlet_backend_studio.sql',import.meta.url),'utf8');
+    await db.exec(migration.slice(0,migration.indexOf('create function roomlet_private.is_staff'))+'commit;');
+    await db.query(`insert into auth.users values ('00000000-0000-4000-8000-000000000003',null,'{"name":"Owner","role":"owner"}')`);
+    const profile=(await db.query('select role,display_name from public.profiles')).rows[0];
+    assert.equal(profile.role,'customer');
+    assert.equal(profile.display_name,'');
+  } finally {await db.close();}
+});
+
 test('Telegram receipts are atomic, persistent and unavailable to browser roles',async()=>{
   const db=new PGlite();
   try {

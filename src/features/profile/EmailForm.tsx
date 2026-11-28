@@ -6,6 +6,7 @@ import { ArrowLeft, ArrowRight, Eye, EyeOff, MailCheck, Send } from "lucide-reac
 import { Button, Input } from "@/components/ui";
 import { submitEmail, type EmailState } from "./email-actions";
 import { authHref, type AuthMode } from "./auth-paths";
+import { TelegramSessionStatus, useTelegramSession } from "./TelegramSession";
 
 const screens = {
   login: { title: "Вход в профиль", description: "Войдите в свой аккаунт Roomlet.", submit: "Войти", pending: "Входим…" },
@@ -29,6 +30,7 @@ export function EmailForm({ mode, next, code, localProof, flowId, recovered, dem
   mode: AuthMode; next: string; code?: string; localProof?: string; flowId?: string; recovered: boolean; demo: boolean; invalidLink: boolean; miniAvailable: boolean; telegramError?:boolean;
 }) {
   const [state, action, pending] = useActionState(submitEmail, initial);
+  const telegram = useTelegramSession();
   const expiredFragment = useSyncExternalStore(subscribeHash, hasMailError, () => false);
   const [visible, setVisible] = useState(false);
   const [remaining,setRemaining] = useState(0);
@@ -46,6 +48,9 @@ export function EmailForm({ mode, next, code, localProof, flowId, recovered, dem
   const newPassword = mode === "register" || mode === "recover";
   const back = mode === "login" ? "/profile" : authHref(mode === "recover" ? "forgot" : "login", next);
   const backLabel = mode === "login" ? "Мой профиль" : mode === "recover" ? "Восстановление пароля" : "Ко входу";
+  const linking = ["/mini/link","/profile/telegram"].includes(next);
+  if (telegram.mini && !linking && (mode === "login" || mode === "register"))
+    return <section className="account-page"><TelegramSessionStatus /></section>;
 
   return <section className="account-page">
     <Link href={back} className="account-back"><ArrowLeft size={17} aria-hidden />{backLabel}</Link>
@@ -65,7 +70,7 @@ export function EmailForm({ mode, next, code, localProof, flowId, recovered, dem
         {state.error && <p role="alert" className="account-error">{state.error}</p>}
         <Link className="account-text-link" href={authHref("login", next)}>Вернуться ко входу</Link>
       </div> : <div className="account-body">
-        {(mode === "login" || mode === "register") && <div className="account-method">
+        {(mode === "login" || mode === "register") && telegram.status === "web" && !linking && <div className="account-method">
           {miniAvailable ? <a className="account-telegram" href={"/api/telegram/login?next="+encodeURIComponent(next)}>
             <Send size={20} aria-hidden /><span>Войти через Telegram</span></a> : <>
           <button className="account-telegram" type="button" disabled aria-describedby="telegram-availability">

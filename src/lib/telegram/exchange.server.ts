@@ -6,7 +6,7 @@ import { createAssertion, provider, recentlyAuthenticated } from './assertion.se
 import { telegramAdmin } from './http.server';
 import type { TelegramLaunch } from './init-data.server';
 
-export async function exchangeTelegram(launch:TelegramLaunch,intent:'login'|'link',accountId?:string|null) {
+export async function exchangeTelegram(launch:TelegramLaunch,intent:'login'|'link',accountId?:string|null,mini = false) {
   const reply=(status:number,result:string)=>({status,result});
   const client=await createRoomletClient();
   const {data:{user},error}=await client.auth.getUser();
@@ -27,7 +27,8 @@ export async function exchangeTelegram(launch:TelegramLaunch,intent:'login'|'lin
   if(used.data!==true) return reply(409,'reopen');
   const {origin,keys}=issuerConfig();
   const credentials=createAssertion(launch,origin,keys);
-  const result=intent==='link'?await client.auth.linkIdentity(credentials):await client.auth.signInWithIdToken(credentials);
+  const signInClient=mini && intent==='login' ? await createRoomletClient('telegram') : client;
+  const result=intent==='link'?await client.auth.linkIdentity(credentials):await signInClient.auth.signInWithIdToken(credentials);
   if(result.error || !result.data.user || !result.data.session)
     return reply(result.error?.code==='identity_already_exists'?409:503,result.error?.code==='identity_already_exists'?'conflict':'exchange');
   if(intent==='link' && result.data.user.id!==user?.id) {

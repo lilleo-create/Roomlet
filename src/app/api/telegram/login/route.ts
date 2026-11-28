@@ -12,6 +12,10 @@ export async function GET(request:Request) {
     const url=new URL(request.url);
     const intent=url.searchParams.get('intent')==='link'?'link':'login';
     const next=authDestination(url.searchParams.get('next'));
+    // Telegram Web embeds Mini Apps. The OIDC consent page rejects framing.
+    if(request.headers.get('sec-fetch-dest')==='iframe') {
+      return NextResponse.redirect(new URL('/mini?next='+encodeURIComponent(next),config.origin),303);
+    }
     const client=await createRoomletClient();
     const {data:{user}}=await client.auth.getUser();
     if(intent==='login' && user) return NextResponse.redirect(new URL(next,config.origin));
@@ -26,6 +30,8 @@ export async function POST(request:Request) {
   try {
     const config=webTelegramConfig();
     if(request.headers.get('origin')!==config.origin) return new Response(null,{status:403});
+    if(request.headers.get('sec-fetch-dest')==='iframe')
+      return NextResponse.redirect(new URL('/mini/link',config.origin),303);
     const client=await createRoomletClient();
     const {data:{user}}=await client.auth.getUser();
     const {data}=await client.auth.getClaims();
