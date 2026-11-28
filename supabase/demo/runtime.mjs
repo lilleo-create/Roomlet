@@ -87,7 +87,8 @@ try {
       .replace('".roomlet-demo/database"', JSON.stringify(native ? "postgres:///postgres" : "memory://")), { mode:0o600 });
   }
   Object.assign(process.env, {EXPERIMENTAL_STORAGE:"1", ROOMLET_DEMO_JWT_SECRET:keys.jwtSecret,
-    ROOMLET_DEMO_PUBLISHABLE_KEY:keys.publishableKey, ROOMLET_DEMO_SERVICE_KEY:keys.serviceKey});
+    ROOMLET_DEMO_PUBLISHABLE_KEY:keys.publishableKey, ROOMLET_DEMO_SERVICE_KEY:keys.serviceKey,
+    ...(!showcase?{SUPABASE_SECRET_KEY:keys.serviceKey}:{})});
   const { createApi } = await import("@supabase/lite/cli");
   // The Lite CLI also supports its own hosted service; this preview only opens the local app.
   const api = await createApi({root:state,authStorage:{getItem:async()=>null,setItem:async()=>{},removeItem:async()=>{}}});
@@ -142,7 +143,7 @@ try {
         try{return new Response(await execute(action));} catch(e){console.error(e.message);return new Response("Operation failed.",{status:500});} finally{busy=false;}
       }
       const rest=/^\/rest\/v1\/(?:rpc\/)?[a-z][a-z0-9_]*$/.test(url.pathname);
-      const auth=/^\/auth\/v1\/(token|logout|user|signup|resend|recover|verify)$/.test(url.pathname);
+      const auth=/^\/auth\/v1\/(token|logout|user|signup|resend|recover|verify|settings|otp)$/.test(url.pathname);
       const media=url.pathname.startsWith("/storage/v1/object/");
       if(!rest && !auth && !media) return new Response(null,{status:404});
       const mailLink = request.method === "GET" && url.pathname === "/auth/v1/verify";
@@ -161,7 +162,7 @@ try {
         callback.searchParams.set("local_proof",proof);
         return new Response(null,{status:303,headers:{Location:callback.href,"Cache-Control":"no-store","Referrer-Policy":"no-referrer"}});
       }
-      if(request.headers.get("apikey")!==keys.publishableKey && !(media && request.method==="GET" && url.pathname.startsWith("/storage/v1/object/sign/") && url.searchParams.has("token"))) {
+      if(request.headers.get("apikey")!==keys.publishableKey && request.headers.get("apikey")!==keys.serviceKey && !(media && request.method==="GET" && url.pathname.startsWith("/storage/v1/object/sign/") && url.searchParams.has("token"))) {
         return new Response(null,{status:401});
       }
       return app.fetch(request,{peerAddress:env.incoming.socket.remoteAddress});

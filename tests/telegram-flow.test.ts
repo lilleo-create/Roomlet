@@ -32,3 +32,12 @@ test('Telegram redirects use PKCE, state and nonce without requesting phone or m
   assert.equal(authDestination('/catalog'),'/catalog');
   assert.equal(authDestination('/profile/telegram'),'/profile/telegram');
 });
+
+test('email merge proof is encrypted and bound to the source, flow and expiry',async()=>{
+  const {sealEmailProof,openEmailProof}=await import('../src/features/profile/email-proof.ts');
+  const value={source:'source',target:'owner',flow:'flow',email:'owner@example.test',refresh_token:'private-refresh',expires:101000};
+  const sealed=sealEmailProof(value,'secret');
+  assert.equal(sealed.includes('private-refresh'),false);
+  assert.deepEqual(openEmailProof(sealed,'secret','source','flow',100000),value);
+  for(const args of [[sealed+'x','secret','source','flow',100000],[sealed,'wrong','source','flow',100000],[sealed,'secret','other','flow',100000],[sealed,'secret','source','other',100000],[sealed,'secret','source','flow',102000]]) assert.throws(()=>openEmailProof(String(args[0]),String(args[1]),String(args[2]),String(args[3]),Number(args[4])));
+});

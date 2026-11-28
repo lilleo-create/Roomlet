@@ -41,3 +41,22 @@ test('Telegram receipts are atomic, persistent and unavailable to browser roles'
     }
   } finally {await db.close();}
 });
+
+test('email confirmation attempts are shared across sessions and cannot be replayed',async()=>{
+  const db=new PGlite();
+  try {
+    await db.exec("create schema auth; create schema roomlet_private; create role anon; create role authenticated; create role service_role; create table auth.users(id uuid primary key);");
+    await db.exec(await readFile(new URL('../supabase/migrations/20261128170000_email_link_attempts.sql',import.meta.url),'utf8'));
+    const user='00000000-0000-4000-8000-000000000021',flow='00000000-0000-4000-8000-000000000022';
+    await db.query('insert into auth.users values($1)',[user]);
+    const gate=(action,id=flow)=>db.query('select public.roomlet_email_gate($1,$2,$3,$4) as value',[user,action,id,'person@example.test']);
+    assert.equal((await gate('start')).rows[0].value.allowed,true);
+    assert.equal((await gate('start')).rows[0].value.allowed,false);
+    assert.equal((await gate('attempt','00000000-0000-4000-8000-000000000023')).rows[0].value.allowed,false);
+    for(let i=0;i<6;i++) assert.equal((await gate('attempt')).rows[0].value.allowed,true);
+    assert.equal((await gate('attempt')).rows[0].value.allowed,false);
+    await gate('finish');
+    assert.equal((await gate('attempt')).rows[0].value.allowed,false);
+    for(const role of ['anon','authenticated']) {await db.exec('set role '+role);await assert.rejects(gate('start'),/permission denied/);await db.exec('reset role');}
+  } finally {await db.close();}
+});

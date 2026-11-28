@@ -30,3 +30,22 @@ test('official Telegram JWT maps signed numeric id to the same Mini App identity
     .setIssuer('https://oauth.telegram.org').setAudience('9290085948').setSubject('12345').setIssuedAt().setExpirationTime('5m').sign(privateKey);
   await assert.rejects(verifyTelegramToken(missingId,'9290085948','nonce',keys));
 });
+
+// A failed TCP connection must not consume an authorization code. Once TLS is
+// established, an ambiguous failure must never resend the code automatically.
+test('Telegram transport retries only failures before the secure connection', async () => {
+  const { retryTelegramConnection } = await import('../src/lib/telegram/transport.ts');
+  let calls=0;
+  assert.equal(await retryTelegramConnection(async () => {
+    calls++;
+    if(calls<3) throw Object.assign(new Error('connect'),{beforeSecureConnection:true});
+    return 'token';
+  }),'token');
+  assert.equal(calls,3);
+  calls=0;
+  await assert.rejects(retryTelegramConnection(async () => {calls++;throw new Error('response timeout');}));
+  assert.equal(calls,1);
+  calls=0;
+  await assert.rejects(retryTelegramConnection(async () => {calls++;throw Object.assign(new Error('connect'),{beforeSecureConnection:true});}));
+  assert.equal(calls,4);
+});

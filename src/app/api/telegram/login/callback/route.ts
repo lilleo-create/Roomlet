@@ -6,6 +6,7 @@ import { openWebFlow, verifyTelegramToken } from '@/lib/telegram/oidc';
 import { exchangeTelegram } from '@/lib/telegram/exchange.server';
 import { authDestination } from '@/features/profile/auth-paths';
 import { telegramFailure } from '@/lib/telegram/diagnostics.server';
+import { telegramRequest } from '@/lib/telegram/transport';
 
 export async function GET(request:Request) {
   const jar=await cookies();
@@ -29,9 +30,8 @@ export async function GET(request:Request) {
     const code=params.get('code')!;
     if(code.length>4096) throw Error('Invalid code');
     stage='code-exchange';
-    const response=await fetch('https://oauth.telegram.org/token',{method:'POST',cache:'no-store',signal:AbortSignal.timeout(10000),
-      headers:{'Content-Type':'application/x-www-form-urlencoded',Authorization:'Basic '+Buffer.from(config.clientId+':'+config.clientSecret).toString('base64')},
-      body:new URLSearchParams({grant_type:'authorization_code',code,redirect_uri:config.callback,client_id:config.clientId,code_verifier:flow.verifier})});
+    const response=await telegramRequest('/token',new URLSearchParams({grant_type:'authorization_code',code,redirect_uri:config.callback,client_id:config.clientId,code_verifier:flow.verifier}),
+      'Basic '+Buffer.from(config.clientId+':'+config.clientSecret).toString('base64'));
     if(!response.ok) { telegramFailure(stage,undefined,response.status); throw Error('Code exchange failed'); }
     const tokens=await response.json();
     if(typeof tokens.id_token!=='string' || tokens.id_token.length>16384) throw Error('Missing token');

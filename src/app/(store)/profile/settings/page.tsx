@@ -4,7 +4,8 @@ import { ArrowLeft, ChevronRight, Bell, LogOut, Send, Mail } from 'lucide-react'
 import { PageHeading } from '@/components/ui';
 import { readAccount } from '@/features/profile/session';
 import { miniEnabled, webTelegramEnabled } from '@/lib/telegram/config.server';
-import { ProfileSettingsForm, ConfirmContactEmail } from '@/features/profile/ProfileSettingsForm';
+import { ProfileSettingsForm } from '@/features/profile/ProfileSettingsForm';
+import { emailGate } from '@/features/profile/email-link.server';
 import { leaveProfile } from '../actions';
 import './settings.css';
 
@@ -12,6 +13,8 @@ export default async function ProfileSettings({ searchParams }: { searchParams: 
   const account = await readAccount();
   if (!account) redirect('/profile/login?next=/profile/settings');
   const {telegram} = await searchParams;
+  const emailState=await emailGate(account.id,'read');
+  const pendingEmail=emailState.active;
   return <section className="store-page store-narrow profile-subpage profile-settings">
     <Link href="/profile" className="store-back"><ArrowLeft size={16} aria-hidden /> Мой профиль</Link>
     <PageHeading title="Настройки профиля" />
@@ -29,12 +32,12 @@ export default async function ProfileSettings({ searchParams }: { searchParams: 
         <p>{account.telegramLinked ? 'Подключён — вход без пароля' : 'Вход через ваш Telegram-аккаунт'}</p>
         {!account.telegramLinked && (webTelegramEnabled() ? <Link href="/profile/telegram">Подключить Telegram</Link> : miniEnabled()
           ? <a href="https://t.me/roomlet_shop_bot?startapp=link">Подключить Telegram</a> : <p>Подключение пока недоступно</p>)}
-        {account.telegramLinked && <Link href="/profile/login?next=/profile/telegram">У меня уже есть аккаунт с почтой</Link>}
+        {account.telegramLinked && !account.emailConfirmed && <Link href="/profile/email">У меня уже есть аккаунт с почтой</Link>}
       </div></div>
       <div className="profile-settings-method"><Mail size={20} aria-hidden /><div><h3>Почта и пароль</h3>
         {account.emailConfirmed ? <><p>{account.email} · подтверждена</p>
-          <Link href="/profile/forgot?next=/profile/settings">Настроить или изменить пароль</Link></>
-          : <ConfirmContactEmail email={account.contactEmail} />}
+          {pendingEmail&&<p>{emailState.email} · ожидает подтверждения</p>}<Link href="/profile/email">{pendingEmail?'Подтвердить новый адрес':'Изменить почту'}</Link><br/><Link href="/profile/forgot?next=/profile/settings">Настроить или изменить пароль</Link></>
+          : <><p>{pendingEmail?'Ожидает подтверждения':'Не подключена'}</p><Link href="/profile/email">{pendingEmail?'Подтвердить адрес':'Подключить почту'}</Link></>}
       </div></div>
     </section>
     <section className="profile-settings-section" aria-labelledby="account-heading">

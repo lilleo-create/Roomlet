@@ -21,6 +21,8 @@ const fixtureIssuedAt=Math.floor(Date.now()/1000);
 const tokenFor=user=>jsonPart({alg:'HS256'})+'.'+jsonPart({sub:user.id,exp:fixtureIssuedAt+3600,amr:[{method:'password',timestamp:fixtureIssuedAt}]})+'.ZmFrZQ';
 const sessionFor=user=>({access_token:tokenFor(user),refresh_token:'fixture-refresh',token_type:'bearer',expires_in:3600,user});
 const receipts=new Set(),sent=[];
+let emailGateState={};
+let verifiedEmail=false;
 const realFetch=globalThis.fetch;
 globalThis.fetch=async(input,options)=>{
   if(String(input).startsWith('https://api.telegram.org/')) {
@@ -37,6 +39,22 @@ const backend=createServer(async(req,res)=>{
   const json=(status,data)=>{res.writeHead(status,{"content-type":"application/json"});res.end(JSON.stringify(data));};
   let body="";for await (const part of req) body+=part;
   const currentUser=req.headers.authorization==='Bearer '+tokenFor(ownerUser)?ownerUser:fixtureUser;
+  if(req.url==='/auth/v1/settings') return json(200,{mailer_autoconfirm:false,external:{email:true}});
+  if(req.url==='/auth/v1/user'&&req.method==='PUT') {
+    const input=JSON.parse(body);
+    if(input.email===ownerUser.email) return json(422,{code:'email_exists',error_code:'email_exists',msg:'Exists'});
+    fixtureUser.new_email=input.email;return json(200,fixtureUser);
+  }
+  if(req.url==='/auth/v1/otp') {assert.equal(JSON.parse(body).create_user,false);return json(200,{});}
+  if(req.url==='/auth/v1/verify') {
+    const input=JSON.parse(body);
+    if(input.token!=='123456') return json(403,{code:'otp_expired',msg:'Invalid'});
+    verifiedEmail=true;
+    if(input.type==='email') return json(200,sessionFor(ownerUser));
+    assert.equal(input.type,'email_change');
+    fixtureUser.email=input.email;fixtureUser.email_confirmed_at=new Date().toISOString();
+    return json(200,sessionFor(fixtureUser));
+  }
   if(req.url==='/auth/v1/user') return json(200,currentUser);
   if(req.url==='/auth/v1/token?grant_type=password') return json(200,sessionFor(ownerUser));
   if(req.url==='/auth/v1/token?grant_type=refresh_token') return json(200,sessionFor(ownerUser));
@@ -55,6 +73,14 @@ const backend=createServer(async(req,res)=>{
     transferred=true;return json(200,true);
   }
   if(req.url==='/rest/v1/rpc/roomlet_support_username') return json(200,null);
+  if(req.url==='/rest/v1/rpc/roomlet_email_gate') {
+    assert.equal(req.headers.apikey,'private-fixture-key');
+    const p=JSON.parse(body);
+    if(p.p_action==='start') emailGateState={flow_id:p.p_flow,email:p.p_email,kind:'change',phase:'code',expires_at:new Date(Date.now()+600000).toISOString(),retry_at:new Date(Date.now()+60000).toISOString()};
+    if(p.p_action==='existing') emailGateState.kind='existing';
+    if(['old','merge','finish'].includes(p.p_action)) emailGateState.phase=p.p_action==='finish'?'done':p.p_action;
+    return json(200,{...emailGateState,allowed:true});
+  }
   if(req.url.startsWith('/rest/v1/') && !['consume_telegram_launch','claim_telegram_update','finish_telegram_update'].some(name=>req.url==='/rest/v1/rpc/'+name)) return json(200,[]);
   if(req.url==='/rest/v1/rpc/claim_telegram_update') {
     const {event_id}=JSON.parse(body);
@@ -155,6 +181,51 @@ try {
   assert.ok(profileHTML.includes('Личные данные') && !profileHTML.includes('>Покупатель<'),'No email or role label is required for the customer profile');
   const profileHome=await (await fetch(base+'/profile',{headers:{cookie:sessionCookie}})).text();
   assert.ok(profileHome.includes('src="https://cdn.example.test/avatar.jpg"'),'The main profile renders its verified Telegram avatar');
+  // Exercise the real rendered email forms and Server Actions, not a separate page.
+  const actionForm=html=>{
+    const form=new FormData();
+    const unescape=v=>v.replaceAll('&quot;','"').replaceAll('&#x27;',"'").replaceAll('&amp;','&').replaceAll('&lt;','<').replaceAll('&gt;','>');
+    for(const tag of html.matchAll(/<input\b[^>]*>/g)) {
+      const name=tag[0].match(/name="([^"]+)"/)?.[1];
+      if(name?.startsWith('$ACTION')) form.set(unescape(name),unescape(tag[0].match(/value="([^"]*)"/)?.[1]??''));
+    }
+    assert.ok([...form.keys()].some(k=>k.startsWith('$ACTION_REF_')));
+    return form;
+  };
+  const emailHTML=await (await fetch(base+'/profile/email',{headers:{cookie:sessionCookie}})).text();
+  assert.ok(emailHTML.includes('Подключить почту'));
+  const emailForm=actionForm(emailHTML);
+  const emailPost=(cookie=sessionCookie)=>fetch(base+'/profile/email',{method:'POST',headers:{origin:base,cookie},body:emailForm,redirect:'manual'});
+  emailForm.set('intent','send');emailForm.set('email','new@example.test');
+  assert.equal((await emailPost()).status,200);
+  assert.equal(fixtureUser.email,'','Sending a code must not confirm the address');
+  emailForm.set('intent','verify');emailForm.set('flow',emailGateState.flow_id);emailForm.set('otp','000000');
+  await emailPost();assert.equal(verifiedEmail,false);
+  emailForm.set('otp','123456');
+  const emailVerified=await emailPost();
+  assert.ok((await emailVerified.text()).includes('Почта подключена'));
+  assert.equal(fixtureUser.id,customer,'Adding email must retain the Telegram UUID');
+  assert.equal(fixtureUser.email,'new@example.test');
+  fixtureUser.email='';delete fixtureUser.email_confirmed_at;delete fixtureUser.new_email;
+  emailGateState={};verifiedEmail=false;
+  emailForm.set('intent','send');emailForm.set('email',ownerUser.email);
+  await emailPost();assert.equal(emailGateState.kind,'existing');
+  emailForm.set('intent','verify');emailForm.set('flow',emailGateState.flow_id);
+  const emailConflict=await emailPost();
+  const emailConflictHTML=await emailConflict.text();
+  assert.ok(emailConflictHTML.includes('Объединить мои аккаунты'));
+  assert.equal(transferred,false);
+  const emailProof=emailConflict.headers.getSetCookie().find(c=>c.startsWith('__Host-roomlet-email-proof='));
+  assert.ok(emailProof && emailProof.toLowerCase().includes('partitioned'));
+  emailForm.set('intent','merge');
+  const mergeSession=sessionCookie+'; '+emailProof.split(';')[0];
+  await emailPost(mergeSession);assert.equal(transferred,false);
+  emailForm.set('allow_transfer','yes');
+  const emailMerged=await emailPost(mergeSession);
+  assert.ok((await emailMerged.text()).includes('Почта подключена'));
+  assert.equal(transferred,true,'Email proof and explicit consent transfer to the existing owner UUID');
+  transferred=false;emailGateState={};
+  console.log('PASS: email OTP rejects wrong code, preserves UUID, does not create duplicate account, and merges only after proof and consent');
   assert.equal((await post("login")).status,409);
   const ownerCookies=[];
   const ownerClient=createServerClient(backendURL,'public-fixture-key',{cookies:{getAll:()=>ownerCookies,setAll:values=>ownerCookies.splice(0,ownerCookies.length,...values)}});
