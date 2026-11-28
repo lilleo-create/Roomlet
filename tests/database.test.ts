@@ -235,6 +235,29 @@ test("Phase 02 · PostgreSQL, RLS и Storage", async t => {
     await db.exec('reset role; set role service_role');
     await assert.rejects(transfer(),{code:'42501'});
     await db.query("select consume_telegram_launch($1,now()+interval '1 minute')",[proof]);
+    await db.exec('reset role');
+    const snapshot=async()=> (await db.query(`select jsonb_build_object(
+      'identity',(select user_id from auth.identities where provider_id='tg:987654321'),
+      'order_owner',(select customer_id from orders where customer_id in ($1,$2) limit 1),
+      'target_phone',(select contact_phone from profiles where id=$1),
+      'target_role',(select role from profiles where id=$1),
+      'source_banned',(select banned_until from auth.users where id=$2),
+      'sessions',(select count(*) from auth.sessions where user_id=$2),
+      'revoked',(select revoked from auth.refresh_tokens where user_id=$2::text),
+      'transfers',(select count(*) from roomlet_private.telegram_account_transfers where source_id=$2)) as value`,[target,source])).rows[0];
+    const before=await snapshot();
+    // Reproduce the production dependency omission without deleting any rows.
+    await db.exec('alter table public.notification_preferences rename to preferences_dependency_fixture; set role service_role');
+    await assert.rejects(transfer(),{code:'42P01'});
+    await db.exec('reset role');
+    assert.deepEqual(await snapshot(),before,'A missing dependency must roll back earlier writes');
+    await db.exec('alter table public.preferences_dependency_fixture rename to notification_preferences');
+    // Fail later at the identity update, after orders and contacts were moved.
+    await db.exec('create unique index transfer_failure_fixture on auth.identities(user_id); set role service_role');
+    await assert.rejects(transfer(),{code:'23505'});
+    await db.exec('reset role');
+    assert.deepEqual(await snapshot(),before,'An identity constraint must roll back all related data');
+    await db.exec('drop index auth.transfer_failure_fixture; set role service_role');
     assert.equal((await transfer()).rows[0].roomlet_transfer_telegram,true);
     assert.equal((await db.query<{merged:boolean}>('select roomlet_telegram_account_merged($1) as merged',[source])).rows[0].merged,true);
     assert.equal((await transfer()).rows[0].roomlet_transfer_telegram,true);

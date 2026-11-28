@@ -11,7 +11,7 @@ export function TelegramLinkAction({ accountId, webAvailable, mergeRequired }: {
   const session = useTelegramSession();
   const [transfer, setTransfer] = useState(false);
   const [state, action, pending] = useActionState(confirmTelegramTransfer, {});
-  if (mergeRequired) return <form action={action} className="account-form" aria-busy={pending}>
+  if (mergeRequired) return <form action={action} className="account-form" aria-busy={pending} onReset={() => setTransfer(false)}>
     <p className="account-link-copy">Telegram подтверждён. В нём уже есть отдельный профиль Roomlet.</p>
     <Checkbox className="account-link-consent" name="allow_transfer" value="yes" required checked={transfer} onChange={event => setTransfer(event.target.checked)}>
       <strong>Объединить мои аккаунты</strong>Перенести данные существующего Telegram-профиля.

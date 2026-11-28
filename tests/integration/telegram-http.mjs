@@ -11,6 +11,7 @@ const botToken="fixture-bot-token", issuer="https://mini.example", customer="37d
 const stored = new Set();
 let exchanges=0;
 let transferred=false;
+let failNextTransfer=false;
 const fixtureUser={id:customer,aud:'authenticated',role:'authenticated',email:'',
   app_metadata:{provider:'custom:roomlet-telegram',providers:['custom:roomlet-telegram']},user_metadata:{},
   identities:[{id:'telegram-fixture',identity_id:'telegram-fixture',user_id:customer,provider:'custom:roomlet-telegram',identity_data:{sub:'tg:12345',name:'Test',picture:'https://cdn.example.test/avatar.jpg'}}]};
@@ -70,6 +71,7 @@ const backend=createServer(async(req,res)=>{
     const input=JSON.parse(body);
     assert.equal(input.p_target,ownerUser.id);assert.equal(input.p_telegram_id,'12345');
     assert.ok(stored.has(input.p_proof_hash));
+    if(failNextTransfer) {failNextTransfer=false;return json(400,{code:'42P01',message:'Fixture dependency unavailable'});}
     transferred=true;return json(200,true);
   }
   if(req.url==='/rest/v1/rpc/roomlet_support_username') return json(200,null);
@@ -267,6 +269,26 @@ try {
   const confirm=()=>fetch(base+'/profile/telegram?confirm=merge',{method:'POST',redirect:'manual',headers:{origin:base,cookie:ownerCookie+'; '+mergeCookie.split(';')[0]},body:confirmationForm});
   await confirm();
   assert.equal(transferred,false,'Posting the form without its checkbox cannot transfer data');
+  if(process.argv.includes('--verify-link-form')) {
+    const {chromium,expect}=await import('@playwright/test');
+    const browser=await chromium.launch({headless:true,...(process.platform==='win32'?{channel:'chrome'}:{})});
+    try {
+      const page=await browser.newPage({viewport:{width:390,height:844},extraHTTPHeaders:{cookie:ownerCookie+'; '+mergeCookie.split(';')[0]}});
+      await page.goto(base+'/profile/telegram?confirm=merge');
+      const consent=page.getByRole('checkbox',{name:/Объединить мои аккаунты/});
+      const button=page.getByRole('button',{name:'Объединить и подключить'});
+      await expect(consent).not.toBeChecked();await expect(button).toBeDisabled();
+      await consent.check();await expect(button).toBeEnabled();
+      failNextTransfer=true;
+      await button.click();
+      await expect(page.getByRole('alert').filter({hasText:'Не удалось объединить аккаунты'})).toBeVisible();
+      await expect(consent).not.toBeChecked();await expect(button).toBeDisabled();
+      assert.equal(transferred,false);
+      await consent.check();await expect(button).toBeEnabled();
+      await consent.uncheck();await expect(button).toBeDisabled();
+      console.log('PASS: real confirmation form disables submission before consent and after failed-action reset');
+    } finally {failNextTransfer=false;await browser.close();}
+  }
   confirmationForm.set('allow_transfer','yes');
   const merged=await confirm();
   if(merged.status!==303) {
