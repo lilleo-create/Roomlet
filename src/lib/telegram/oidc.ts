@@ -36,11 +36,15 @@ export async function verifyTelegramToken(token:string,clientId:string,nonce:str
   onVerified?.('token-signature-claims');
   if(payload.nonce!==nonce) throw Object.assign(Error('Invalid Telegram nonce'),{code:'TELEGRAM_NONCE_MISMATCH'});
   onVerified?.('token-nonce');
-  if(!Number.isSafeInteger(payload.id) || (payload.id as number)<=0)
-    throw Object.assign(Error('Invalid Telegram identity'),{code:typeof payload.id==='string'?'TELEGRAM_ID_STRING':'TELEGRAM_ID_INVALID'});
+  // Telegram's OIDC endpoint can serialize the signed profile ID as a decimal
+  // string. Preserve its exact value and the existing Mini App identity key.
+  // Do not use the opaque OIDC sub, username or permissive numeric coercion.
+  const telegramId=typeof payload.id==='number' && Number.isSafeInteger(payload.id) && payload.id>0 ? String(payload.id)
+    : typeof payload.id==='string' && /^[1-9][0-9]{0,15}$/.test(payload.id) && BigInt(payload.id)<=BigInt(Number.MAX_SAFE_INTEGER) ? payload.id : null;
+  if(!telegramId) throw Object.assign(Error('Invalid Telegram identity'),{code:'TELEGRAM_ID_INVALID'});
   onVerified?.('token-identity');
   const photo=typeof payload.picture==='string' && payload.picture.length<=2048 && URL.canParse(payload.picture)?new URL(payload.picture):null;
-  return {telegramId:String(payload.id),displayName:typeof payload.name==='string'?payload.name.slice(0,256):null,
+  return {telegramId,displayName:typeof payload.name==='string'?payload.name.slice(0,256):null,
     username:typeof payload.preferred_username==='string'?payload.preferred_username.slice(0,64):null,
     photoUrl:photo?.protocol==='https:' && !photo.username && !photo.password?photo.href:null,languageCode:null,
     expiresAt:Math.min(payload.exp!,Math.floor(Date.now()/1000)+300),

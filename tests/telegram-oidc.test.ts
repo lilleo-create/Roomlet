@@ -31,6 +31,29 @@ test('official Telegram JWT maps signed numeric id to the same Mini App identity
   await assert.rejects(verifyTelegramToken(missingId,'9290085948','nonce',keys));
 });
 
+test('signed OIDC decimal string ID has exactly the same identity as a Mini App numeric ID', async () => {
+  const {privateKey,publicKey}=await generateKeyPair('RS256');
+  const jwk=await exportJWK(publicKey);jwk.kid='string-id';
+  const keys=createLocalJWKSet({keys:[jwk]});
+  const sign=(id:unknown)=>new SignJWT({id,nonce:'expected-nonce'})
+    .setProtectedHeader({alg:'RS256',kid:'string-id'}).setIssuer('https://oauth.telegram.org').setAudience('9290085948')
+    .setSubject('opaque-subject-not-the-user-id').setIssuedAt().setExpirationTime('5m').sign(privateKey);
+  for(const id of [12345,4503599627370495,Number.MAX_SAFE_INTEGER]) {
+    const numeric=await verifyTelegramToken(await sign(id),'9290085948','expected-nonce',keys);
+    const token=await sign(String(id));
+    const stages:string[]=[];
+    const decimal=await verifyTelegramToken(token,'9290085948','expected-nonce',keys,stage=>stages.push(stage));
+    assert.equal(decimal.telegramId,numeric.telegramId);
+    assert.equal(decimal.telegramId,String(id));
+    assert.deepEqual(stages,['token-signature-claims','token-nonce','token-identity']);
+    await assert.rejects(verifyTelegramToken(token,'9290085948','wrong-nonce',keys),{code:'TELEGRAM_NONCE_MISMATCH'});
+    await assert.rejects(verifyTelegramToken(token,'another-client','expected-nonce',keys));
+  }
+  for(const id of ['', '0', '-1', '+1', '01', '1.0', '1e3', ' 12345', '12345 ', '9007199254740992', '１２３', true, null, {}, -1, 1.5, Number.MAX_SAFE_INTEGER+1]) {
+    await assert.rejects(verifyTelegramToken(await sign(id),'9290085948','expected-nonce',keys));
+  }
+});
+
 // A failed TCP connection must not consume an authorization code. Once TLS is
 // established, an ambiguous failure must never resend the code automatically.
 test('Telegram transport retries only failures before the secure connection', async () => {
