@@ -1,4 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
+import { supportLink } from './support.ts';
 
 type Button = {text:string;url?:string;web_app?:{url:string}};
 const destinations: Record<string, [string,string]> = {
@@ -19,9 +20,9 @@ export function botReply(command: string, origin: string, support?: string): {te
   const button = (key:string): Button => ({text:destinations[key][0],web_app:{url:origin+'/mini?next='+encodeURIComponent(destinations[key][1])}});
   if (command === 'start') return {text:'roomlet.\nКоллекционные миниатюры ручной работы.\n\nВыберите готовую работу или создадим вашу историю.',image:origin+'/images/telegram-welcome.png',buttons:[[button('shop')],[button('custom'),button('orders')]]};
   if (command === 'support') {
-    const username = support?.trim().replace(/^@/,'');
-    return username && /^[a-zA-Z][a-zA-Z0-9_]{4,31}$/.test(username)
-      ? {text:'Связаться с мастерской',buttons:[[{text:'Написать мастеру',url:'https://t.me/'+username}]]}
+    const url = supportLink(support??null);
+    return url
+      ? {text:'Связаться с мастерской',buttons:[[{text:'Написать мастеру',url}]]}
       : {text:'Связь с мастерской пока недоступна.',buttons:[]};
   }
   if (destinations[command]) return {text:destinations[command][0],buttons:[[button(command)]]};

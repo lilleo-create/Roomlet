@@ -3,6 +3,8 @@ import { ArrowUpRight, Bell, CalendarDays, ChevronRight, Heart, LayoutGrid, LogO
 import { PageHeading } from "@/components/ui";
 import { readAccount, roleLabels } from "@/features/profile/session";
 import { leaveProfile } from "./actions";
+import {readSupportUsername} from "@/lib/telegram/support.server";
+import {supportLink} from "@/lib/telegram/support";
 
 type MenuItem = { label: string; icon: LucideIcon; href?: string };
 
@@ -14,13 +16,15 @@ function ProfileMenuRow({ label, icon: Icon, href }: MenuItem) {
       : <span className="profile-unavailable">Недоступно</span>}
   </>;
   return <li>{href
-    ? <Link className="profile-menu-row" href={href}>{contents}</Link>
+    ? href.startsWith('https://t.me/') ? <a className="profile-menu-row" href={href} target="_blank" rel="noopener noreferrer">{contents}</a>
+      : <Link className="profile-menu-row" href={href}>{contents}</Link>
     : <span className="profile-menu-row" aria-disabled="true">{contents}</span>}
   </li>;
 }
 
 export default async function ProfilePage() {
   const account = await readAccount();
+  const contact=supportLink(await readSupportUsername());
   const staff = account?.role === "owner" || account?.role === "maker";
   const menu: MenuItem[] = [
     { label: "Мои заказы", icon: Package, href: "/profile/orders" },
@@ -28,7 +32,7 @@ export default async function ProfilePage() {
     { label: "Уведомления", icon: Bell, href: account ? "/profile/notifications" : undefined },
     ...(account?.role === "owner" ? [{ label: "Управление командой", icon: UsersRound, href: "/studio/team" }] : []),
     { label: "Мои бронирования", icon: CalendarDays },
-    { label: "Связаться с мастерской", icon: Mail },
+    { label: "Связаться с мастерской", icon: Mail, href: contact??undefined },
     ...(account ? [{ label: "Настройки", icon: Settings, href: "/profile/settings" }] : []),
   ];
   return <section className="profile-page">

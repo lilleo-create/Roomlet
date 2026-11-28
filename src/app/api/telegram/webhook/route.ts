@@ -1,6 +1,7 @@
 import { botReply, parseCommand, validWebhookSecret } from '@/lib/telegram/bot';
 import { boundedText, telegramAdmin } from '@/lib/telegram/http.server';
 import { issuerOrigin } from '@/lib/telegram/assertion.server';
+import { readSupportUsername } from '@/lib/telegram/support.server';
 
 export const runtime='nodejs';
 const ack=()=>new Response(null,{status:200});
@@ -14,7 +15,8 @@ export async function POST(request:Request) {
   try {
     const token=process.env.TELEGRAM_BOT_TOKEN;
     if (!token) return new Response(null,{status:503});
-    const message=botReply(update.command,issuerOrigin(process.env.ROOMLET_SITE_URL),process.env.TELEGRAM_SUPPORT_USERNAME);
+    const support=update.command==='support'?await readSupportUsername():null;
+    const message=botReply(update.command,issuerOrigin(process.env.ROOMLET_SITE_URL),support??undefined);
     const admin=telegramAdmin();
     // Commit the claim before sending: a lost Bot API response must not send twice.
     const claim=await admin.rpc('claim_telegram_update',{event_id:update.updateId});

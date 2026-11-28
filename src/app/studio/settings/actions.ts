@@ -1,7 +1,8 @@
 "use server";
 import {revalidatePath} from "next/cache";
 import {redirect} from "next/navigation";
-import {requireStaff} from "@/features/studio/session";
+import {requireStaff,requireOwner} from "@/features/studio/session";
+import {normalizeSupportUsername} from "@/lib/telegram/support";
 import {validDate} from "@/features/booking/calendar";
 
 function finish(code:"saved"|"invalid"|"failed"):never {
@@ -37,4 +38,15 @@ export async function removeBlock(form:FormData) {
   if (!/^[\da-f-]{36}$/i.test(id)) finish("invalid");
   const {error}=await supabase.from("blocked_periods").delete().eq("id",id).select("id").single();
   finish(error?"failed":"saved");
+}
+export async function saveSupport(form:FormData) {
+  const {supabase}=await requireOwner();
+  const raw=form.get('telegram_support_username');
+  const username=typeof raw==='string'?normalizeSupportUsername(raw):null;
+  if(username===null) redirect('/studio/settings?result=support-invalid');
+  const {error}=await supabase.rpc('save_workshop_support',{p_username:username});
+  if(error) finish('failed');
+  revalidatePath('/studio/settings');
+  revalidatePath('/profile');
+  redirect('/studio/settings?result=support-saved');
 }
