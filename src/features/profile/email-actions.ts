@@ -6,8 +6,10 @@ import { redirect } from "next/navigation";
 import { localDemoEnabled } from "@/lib/supabase/config";
 import { createRoomletClient } from "@/lib/supabase/server";
 import { authDestination, authHref, authMailOrigin } from "./auth-paths";
+import { readRegistrationDocuments } from './registration-documents.server';
+import { registrationConsent } from './registration-documents';
 
-export type EmailState = { error?: string; sent?: boolean; email?: string; name?: string; retryAt?: number };
+export type EmailState = { error?: string; fieldErrors?: Partial<Record<'email'|'password'|'display_name'|'consent',string>>; sent?: boolean; email?: string; name?: string; retryAt?: number };
 type Client = Awaited<ReturnType<typeof createRoomletClient>>;
 
 const textField = (form: FormData, name: string) => {
@@ -49,11 +51,11 @@ export async function submitEmail(_previous: EmailState, form: FormData): Promis
   const fields = { email: email.slice(0, 254), name: name.slice(0, 100) };
   if (!["register","resend","login","forgot","confirm","recover"].includes(mode)) return { error: "Действие недоступно." };
   if (!((code || localProof) && (mode === "confirm" || mode === "recover")) && (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
-    return { ...fields, error: "Укажите корректный адрес почты." };
+    return { ...fields, fieldErrors: { email: "Укажите корректный адрес почты." } };
   }
   if (mode === "register" || mode === "recover") {
-    if (password.length < 8 || password.length > 128) return { ...fields, error: "Используйте пароль длиной от 8 до 128 символов." };
-    if (mode === "register" && Array.from(name).length > 100) return { ...fields, error: "Сократите имя до 100 символов." };
+    if (password.length < 8 || password.length > 128) return { ...fields, fieldErrors: { password: "Используйте пароль длиной от 8 до 128 символов." } };
+    if (mode === "register" && (!name || Array.from(name).length > 100)) return { ...fields, fieldErrors: { display_name: "Укажите имя длиной до 100 символов." } };
   }
 
   const client = await createRoomletClient(mode === "forgot" || mode === "recover" ? "recovery" : "account");
@@ -88,8 +90,11 @@ export async function submitEmail(_previous: EmailState, form: FormData): Promis
       if (error && error.code !== "user_not_found") return { ...fields, error: authMessage(error) };
       return sent();
     }
+    let consent;
+    try { consent = registrationConsent(await readRegistrationDocuments(), form); }
+    catch (error) { return { ...fields, error: error instanceof Error ? error.message : 'Не удалось проверить условия регистрации.' }; }
     const { data, error } = await client.auth.signUp({ email, password, options: {
-      emailRedirectTo: callback, data: name ? { display_name: name } : {},
+      emailRedirectTo: callback, data: { display_name: name, ...(consent ? { registration_consent: consent } : {}) },
     } });
     if (error) {
       if (error.code === "user_already_exists" || error.code === "email_exists") return { ...fields, error: "Не удалось зарегистрироваться. Попробуйте войти или восстановить пароль." };

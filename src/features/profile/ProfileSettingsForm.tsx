@@ -1,6 +1,6 @@
 "use client";
 import { useActionState, useState } from 'react';
-import { UserRound } from 'lucide-react';
+import { ProfileAvatar } from './ProfileAvatar';
 import { Button, Input } from '@/components/ui';
 import { saveProfile, type ProfileSaveState } from '@/app/(store)/profile/actions';
 import { requestContactConfirmation, type ContactConfirmationState } from './contact-actions';
@@ -10,24 +10,19 @@ export function ProfileSettingsForm({ name, email, phone, avatar, confirmedEmail
 }) {
   const [values,setValues] = useState({name,email,phone});
   const [state,action,pending] = useActionState(saveProfile,{} as ProfileSaveState);
-  const [imageFailed,setImageFailed] = useState(false);
   const baseline = state.saved ?? {name,email,phone};
   const dirty = values.name.trim() !== baseline.name || values.email.trim() !== baseline.email ||
     values.phone.trim().replace(/[\s().-]/g,'') !== baseline.phone;
   const update = (field: keyof typeof values, value: string) => setValues(previous => ({...previous,[field]:value}));
   return <form action={action} className="profile-settings-form" aria-busy={pending}>
-    <div className="profile-settings-avatar" aria-hidden="true">{avatar && !imageFailed
-      // Telegram serves remote profile photos. Never proxy a user-controlled URL on the server.
-      // eslint-disable-next-line @next/next/no-img-element
-      ? <img src={avatar} alt="" referrerPolicy="no-referrer" onError={() => setImageFailed(true)} />
-      : <UserRound size={26} strokeWidth={1.5} />}</div>
+    <ProfileAvatar src={avatar} className="profile-settings-avatar" />
     <Input label="Имя" name="display_name" autoComplete="name" maxLength={100}
       value={values.name} onChange={event => update('name',event.target.value)} />
     <Input label="Электронная почта" name="contact_email" type="email" autoComplete="email" maxLength={254}
-      value={values.email} onChange={event => update('email',event.target.value)}
-      hint={confirmedEmail && values.email.toLowerCase() === confirmedEmail.toLowerCase() ? 'Адрес подтверждён.' : 'Необязательно. Контактный адрес не даёт доступа к аккаунту.'} />
+      value={values.email} placeholder={confirmedEmail || 'Для связи с мастерской'} onChange={event => update('email',event.target.value)}
+      hint={confirmedEmail && (!values.email || values.email.toLowerCase() === confirmedEmail.toLowerCase()) ? 'Почта для входа подтверждена.' : 'Контактная почта. Подтверждение — в способах входа.'} />
     <Input label="Телефон" name="contact_phone" type="tel" autoComplete="tel" maxLength={32}
-      value={values.phone} onChange={event => update('phone',event.target.value)} hint="Необязательно. С кодом страны." />
+      value={values.phone} onChange={event => update('phone',event.target.value)} hint="С кодом страны" />
     {state.error && <p role="alert" className="profile-settings-error">{state.error}</p>}
     <Button className="profile-settings-save" type="submit" disabled={pending || !dirty}>{pending ? 'Сохраняем…' : 'Сохранить изменения'}</Button>
     <p className="profile-settings-feedback" role="status">{pending ? '' : !dirty ? state.saved ? 'Изменения сохранены' : 'Нет несохранённых изменений' : 'Есть несохранённые изменения'}</p>

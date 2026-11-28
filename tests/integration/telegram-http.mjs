@@ -13,7 +13,7 @@ let exchanges=0;
 let transferred=false;
 const fixtureUser={id:customer,aud:'authenticated',role:'authenticated',email:'',
   app_metadata:{provider:'custom:roomlet-telegram',providers:['custom:roomlet-telegram']},user_metadata:{},
-  identities:[{id:'telegram-fixture',identity_id:'telegram-fixture',user_id:customer,provider:'custom:roomlet-telegram',identity_data:{sub:'tg:12345',name:'Test'}}]};
+  identities:[{id:'telegram-fixture',identity_id:'telegram-fixture',user_id:customer,provider:'custom:roomlet-telegram',identity_data:{sub:'tg:12345',name:'Test',picture:'https://cdn.example.test/avatar.jpg'}}]};
 const ownerUser={id:'bce30769-a1bf-4ba4-b02c-3b1fa2655190',aud:'authenticated',role:'authenticated',email:'owner@example.test',
   email_confirmed_at:new Date().toISOString(),
   app_metadata:{provider:'email',providers:['email']},user_metadata:{},identities:[]};
@@ -43,6 +43,10 @@ const backend=createServer(async(req,res)=>{
   if(req.url.startsWith('/auth/v1/logout')) return json(200,{});
   if(req.url.startsWith('/rest/v1/profiles?')) return json(200,{display_name:'Test',role:currentUser.id===ownerUser.id?'owner':'customer',contact_email:null,contact_phone:null});
   if(req.url==='/rest/v1/rpc/roomlet_telegram_account_merged') return json(200,transferred && JSON.parse(body).p_user_id===customer);
+  if(req.url==='/rest/v1/rpc/roomlet_telegram_link_conflict') {
+    const input=JSON.parse(body); assert.equal(req.headers.apikey,'private-fixture-key');
+    assert.ok(stored.has(input.p_proof_hash)); return json(200,input.p_telegram_id==='12345' && !transferred);
+  }
   if(req.url==='/rest/v1/rpc/roomlet_transfer_telegram') {
     assert.equal(req.headers.apikey,'private-fixture-key');
     const input=JSON.parse(body);
@@ -148,7 +152,9 @@ try {
   const profile=await fetch(base+'/profile/settings',{headers:{cookie:sessionCookie}});
   const profileHTML=await profile.text();
   assert.equal(profile.status,200);
-  assert.ok(profileHTML.includes('Личные данные') && profileHTML.includes('Необязательно') && !profileHTML.includes('>Покупатель<'),'No email or role label is required for the customer profile');
+  assert.ok(profileHTML.includes('Личные данные') && !profileHTML.includes('>Покупатель<'),'No email or role label is required for the customer profile');
+  const profileHome=await (await fetch(base+'/profile',{headers:{cookie:sessionCookie}})).text();
+  assert.ok(profileHome.includes('src="https://cdn.example.test/avatar.jpg"'),'The main profile renders its verified Telegram avatar');
   assert.equal((await post("login")).status,409);
   const ownerCookies=[];
   const ownerClient=createServerClient(backendURL,'public-fixture-key',{cookies:{getAll:()=>ownerCookies,setAll:values=>ownerCookies.splice(0,ownerCookies.length,...values)}});
@@ -172,9 +178,32 @@ try {
   };
   const transferPost=consent=>fetch(base+'/api/telegram/session',{method:'POST',headers:{origin:issuer,'x-roomlet-intent':'link',
     'x-roomlet-account':ownerUser.id,'x-roomlet-transfer':consent?'yes':'no',cookie:ownerCookie},body:mergeLaunch(consent?'consented':'not-consented')});
-  assert.equal((await transferPost(false)).status,409);
+  const pendingMerge=await transferPost(false);
+  assert.equal(pendingMerge.status,409);
+  assert.deepEqual(await pendingMerge.json(),{result:'merge-required'});
+  const mergeCookie=pendingMerge.headers.getSetCookie().find(value=>value.startsWith('__Host-roomlet-telegram-link='));
+  assert.ok(mergeCookie && mergeCookie.toLowerCase().includes('httponly') && mergeCookie.toLowerCase().includes('partitioned'));
+  const confirmationHTML=await (await fetch(base+'/profile/telegram?confirm=merge',{headers:{cookie:ownerCookie+'; '+mergeCookie.split(';')[0]}})).text();
+  assert.ok(confirmationHTML.includes('Объединить мои аккаунты'),'Confirmation appears only after a verified identity conflict');
   assert.equal(transferred,false,'An occupied identity must not transfer without explicit consent');
-  assert.deepEqual(await (await transferPost(true)).json(),{result:'linked'});
+  const confirmationForm=new FormData();
+  const unescape=value=>value.replaceAll('&quot;','"').replaceAll('&#x27;',"'").replaceAll('&amp;','&').replaceAll('&lt;','<').replaceAll('&gt;','>');
+  for(const input of confirmationHTML.matchAll(/<input\b[^>]*>/g)) {
+    const name=input[0].match(/name="([^"]+)"/)?.[1];
+    if(name?.startsWith('$ACTION')) confirmationForm.set(unescape(name),unescape(input[0].match(/value="([^"]*)"/)?.[1]??''));
+  }
+  assert.ok([...confirmationForm.keys()].some(name=>name.startsWith('$ACTION_REF_')),'Use the real rendered server action');
+  const confirm=()=>fetch(base+'/profile/telegram?confirm=merge',{method:'POST',redirect:'manual',headers:{origin:base,cookie:ownerCookie+'; '+mergeCookie.split(';')[0]},body:confirmationForm});
+  await confirm();
+  assert.equal(transferred,false,'Posting the form without its checkbox cannot transfer data');
+  confirmationForm.set('allow_transfer','yes');
+  const merged=await confirm();
+  if(merged.status!==303) {
+    const html=await merged.text();
+    console.log('Confirmation response:',{status:merged.status,expired:html.includes('Время подтверждения истекло'),missingConsent:html.includes('Подтвердите объединение аккаунтов.'),transferError:html.includes('Не удалось объединить аккаунты.'),actionFields:[...confirmationForm.keys()]});
+  }
+  assert.equal(merged.status,303);
+  assert.ok(merged.headers.get('location').includes('telegram=linked'));
   assert.equal(transferred,true);
   const afterTransfer=await fetch(base+'/api/telegram/session',{method:'POST',headers:{origin:issuer,'x-roomlet-intent':'login',cookie:sessionCookie},body:mergeLaunch('reopen-after-transfer')});
   assert.deepEqual(await afterTransfer.json(),{result:'signed-in'},'An old customer cookie must be replaced after an explicitly confirmed transfer');

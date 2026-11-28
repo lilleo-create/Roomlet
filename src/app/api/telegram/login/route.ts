@@ -37,9 +37,7 @@ export async function POST(request:Request) {
     const {data}=await client.auth.getClaims();
     if(!user?.email || !user.email_confirmed_at || data?.claims.sub!==user.id || !recentlyAuthenticated(data.claims.amr))
       return NextResponse.redirect(new URL('/profile/login?next=/profile/telegram',config.origin),303);
-    const form=await request.formData();
     const flow=createWebFlow('link',user.id,'/profile/settings');
-    flow.allowTransfer=form.get('allow_transfer')==='yes';
     return start(config,flow);
   } catch {return new Response('Привязка Telegram пока недоступна.',{status:503,headers:{'Cache-Control':'no-store'}});}
 }

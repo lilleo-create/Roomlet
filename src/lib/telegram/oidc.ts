@@ -37,6 +37,6 @@ export async function verifyTelegramToken(token:string,clientId:string,nonce:str
   return {telegramId:String(payload.id),displayName:typeof payload.name==='string'?payload.name.slice(0,256):null,
     username:typeof payload.preferred_username==='string'?payload.preferred_username.slice(0,64):null,
     photoUrl:photo?.protocol==='https:' && !photo.username && !photo.password?photo.href:null,languageCode:null,
-    expiresAt:Math.min(payload.exp!,Math.floor(Date.now()/1000)+60),
+    expiresAt:Math.min(payload.exp!,Math.floor(Date.now()/1000)+300),
     replayKey:createHash('sha256').update('telegram-oidc:'+token).digest('hex')};
 }

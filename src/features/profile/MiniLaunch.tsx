@@ -21,12 +21,14 @@ export function MiniLaunch({accountId,allowTransfer=false}: {accountId?:string;a
     const status = await session.link(accountId,allowTransfer);
     setResult(status);
     if (status === "authenticated") { router.replace("/profile/settings?telegram=linked"); router.refresh(); }
+    if (status === "merge-required") { router.replace('/profile/telegram?confirm=merge'); router.refresh(); }
   }
   if (!accountId) return <TelegramSessionStatus />;
   if (result === "reauth") return <Link className="store-back" href="/profile/login?next=/mini/link">Подтвердить вход по почте и паролю</Link>;
   return <>
     <Button type="button" disabled={!session.mini || result === "pending"} onClick={link}>Подтвердить привязку</Button>
-    {result && !["pending","authenticated"].includes(result) && <p role="alert">{result === "conflict"
+    {result && !["pending","authenticated","merge-required"].includes(result) && <p role="alert">{result === 'reopen'
+      ? 'Этот запуск уже использован для входа. Откройте подключение заново — аккаунт с почтой сохранён.' : result === "conflict"
       ? "Telegram связан с другим аккаунтом. Для переноса подтвердите объединение при привязке."
       : "Привязка не завершена. Откройте мини-приложение снова и повторите попытку."}</p>}
     {result === 'reopen' && <a href="https://t.me/roomlet_shop_bot?startapp=link">Открыть привязку заново в Telegram</a>}

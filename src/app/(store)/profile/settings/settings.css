@@ -2,7 +2,10 @@
 .profile-settings .ui-page-heading { margin-bottom: 24px; }
 .profile-settings-section { padding-block: 24px; border-top: 1px solid var(--border); }
 .profile-settings-section h2 { font-size: 20px; line-height: 1.3; margin: 0 0 20px; }
-.profile-settings-form { display: grid; gap: 16px; }
+.profile-settings-form { display: grid; gap: 12px; }
+.profile-settings-form .ui-control { min-height: 48px; border-radius: 8px; }
+.profile-settings .ui-page-heading h1 { font-size: clamp(26px,5vw,32px); }
+.profile-settings .profile-settings-save:disabled { opacity: 1; background: #E7E2D9; color: #8D877E; border: 1px solid #D8D1C7; }
 .profile-settings-avatar { width: 64px; height: 64px; display: grid; place-items: center; overflow: hidden; border-radius: 50%; background: var(--ink); color: white; }
 .profile-settings-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .profile-settings .profile-settings-save { background: var(--ink); color: white; width: 100%; }

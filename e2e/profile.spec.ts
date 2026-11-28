@@ -26,7 +26,7 @@ test("гость открывает профиль, форму входа и с�
   await expect(page.getByRole("link", { name: "Уведомления" })).toHaveCount(0);
   await page.getByRole("link", { name: "Войти", exact: true }).click();
   await expect(page.getByLabel("Электронная почта")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Вход в профиль" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "С возвращением." })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Разделы магазина" })
     .getByRole("link", { name: "Профиль" })).toHaveAttribute("aria-current", "location");
   await page.goto("/profile");

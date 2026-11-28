@@ -12,7 +12,7 @@ test("Phase 02 · PostgreSQL, RLS и Storage", async t => {
   await db.exec(`
     create role anon; create role authenticated; create role service_role bypassrls;
     create schema auth; create table auth.users(id uuid primary key, email text, email_confirmed_at timestamptz,
-      raw_app_meta_data jsonb default '{}', banned_until timestamptz);
+      raw_app_meta_data jsonb default '{}', raw_user_meta_data jsonb default '{}', banned_until timestamptz);
     create table auth.identities(id uuid primary key default gen_random_uuid(), user_id uuid references auth.users,
       provider text, provider_id text, identity_data jsonb default '{}', updated_at timestamptz default now(), unique(provider,provider_id));
     create table auth.sessions(id uuid primary key default gen_random_uuid(),user_id uuid references auth.users);
@@ -201,6 +201,24 @@ test("Phase 02 · PostgreSQL, RLS и Storage", async t => {
     await asUser(telegramUser);
     assert.equal((await db.query('select * from workshop_settings')).rows.length,0);
   });
+  await t.test('согласие выключено в тестировании; опубликованные версии записываются атомарно с регистрацией',async()=>{
+    await db.exec('reset role');
+    const trial=randomUUID(), consented=randomUUID(), rejected=randomUUID();
+    await db.query("insert into auth.users(id,email) values($1,'trial@example.test')",[trial]);
+    assert.equal((await db.query('select * from roomlet_private.registration_consents')).rows.length,0);
+    const documents={enabled:true,privacy:{url:'https://example.test/privacy',version:'p1'},consent:{url:'https://example.test/consent',version:'c1'}};
+    await db.query('update workshop_settings set registration_documents=$1',[JSON.stringify(documents)]);
+    await assert.rejects(db.query("insert into auth.users(id,email) values($1,'rejected@example.test')",[rejected]),{code:'23514'});
+    assert.equal((await db.query('select id from auth.users where id=$1',[rejected])).rows.length,0);
+    await db.query("insert into auth.users(id,email,raw_user_meta_data) values($1,'consented@example.test',$2)",[consented,JSON.stringify({registration_consent:{accepted:true,privacy_version:'p1',consent_version:'c1'}})]);
+    const receipt=(await db.query<{documents:typeof documents;dated:boolean}>('select documents,accepted_at<=now()+interval \'1 second\' as dated from roomlet_private.registration_consents where user_id=$1',[consented])).rows[0];
+    assert.deepEqual(receipt.documents,documents); assert.equal(receipt.dated,true);
+    await asUser(consented);
+    await assert.rejects(db.query('select * from roomlet_private.registration_consents'),{code:'42501'});
+    assert.deepEqual((await db.query('select roomlet_registration_documents() as documents')).rows[0],{documents});
+    await db.exec('reset role');
+    await db.query('update workshop_settings set registration_documents=null');
+  });
   await t.test('перенос Telegram сохраняет owner, заказы и исходную запись; доступен только серверу',async()=>{
     await db.exec('reset role');
     const target=randomUUID(),source=randomUUID(),other=randomUUID();
@@ -219,7 +237,8 @@ test("Phase 02 · PostgreSQL, RLS и Storage", async t => {
     await db.query("select consume_telegram_launch($1,now()+interval '1 minute')",[proof]);
     assert.equal((await transfer()).rows[0].roomlet_transfer_telegram,true);
     assert.equal((await db.query<{merged:boolean}>('select roomlet_telegram_account_merged($1) as merged',[source])).rows[0].merged,true);
-    await assert.rejects(transfer(),{code:'42501'});
+    assert.equal((await transfer()).rows[0].roomlet_transfer_telegram,true);
+    await assert.rejects(db.query('select roomlet_transfer_telegram($1,$2,$3)',[other,'987654321',proof]),{code:'42501'});
     await db.exec('reset role');
     assert.equal((await db.query<{user_id:string}>("select user_id from auth.identities where provider_id='tg:987654321'")).rows[0].user_id,target);
     assert.equal((await db.query<{role:string}>('select role from profiles where id=$1',[target])).rows[0].role,'owner');

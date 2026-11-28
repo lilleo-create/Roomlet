@@ -1,0 +1,13 @@
+.roomlet-checkbox { display: flex; align-items: flex-start; gap: 12px; min-height: 44px; padding-block: 10px; cursor: pointer; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.roomlet-checkbox-control { position: relative; flex: 0 0 22px; width: 22px; height: 22px; }
+.roomlet-checkbox-control input { position: absolute; inset: -10px; width: 42px; height: 42px; margin: 0; opacity: 0; cursor: pointer; z-index: 1; }
+.roomlet-checkbox-box { display: grid; place-items: center; width: 22px; height: 22px; border: 1px solid #706C65; border-radius: 4px; background: #FCFAF6; color: white; transition: background-color .15s, border-color .15s; }
+.roomlet-checkbox-box svg { visibility: hidden; }
+.roomlet-checkbox-control input:checked + .roomlet-checkbox-box { background: #151515; border-color: #151515; }
+.roomlet-checkbox-control input:checked + .roomlet-checkbox-box svg { visibility: visible; }
+.roomlet-checkbox-control input:focus-visible + .roomlet-checkbox-box { outline: 2px solid var(--primary); outline-offset: 3px; }
+.roomlet-checkbox-control input:disabled { cursor: not-allowed; }
+.roomlet-checkbox-control input:disabled + .roomlet-checkbox-box { background: #E7E2D9; border-color: #D8D1C7; }
+.roomlet-checkbox-copy { min-width: 0; }
+.roomlet-checkbox-copy a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+@media(prefers-reduced-motion: reduce) { .roomlet-checkbox-box { transition: none; } }

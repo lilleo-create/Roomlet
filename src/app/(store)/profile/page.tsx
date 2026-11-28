@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ArrowUpRight, Bell, CalendarDays, ChevronRight, Heart, LayoutGrid, LogOut, Mail, Package, Settings, UserRound, UsersRound, type LucideIcon } from "lucide-react";
+import { ArrowUpRight, Bell, CalendarDays, ChevronRight, Heart, LayoutGrid, LogOut, Mail, Package, Settings, UsersRound, type LucideIcon } from "lucide-react";
+import { ProfileAvatar } from '@/features/profile/ProfileAvatar';
 import { PageHeading } from "@/components/ui";
 import { readAccount } from "@/features/profile/session";
 import { leaveProfile } from "./actions";
@@ -39,7 +40,7 @@ export default async function ProfilePage() {
     <PageHeading title="Мой профиль" action={account &&
       <Link className="profile-settings-shortcut" href="/profile/settings" aria-label="Настройки профиля"><Settings size={19} strokeWidth={1.65} aria-hidden /></Link>} />
     <div className="profile-identity">
-      <span className="profile-avatar" aria-hidden="true"><UserRound size={23} strokeWidth={1.65} /></span>
+      <ProfileAvatar src={account?.avatar} />
       <div className="profile-identity-copy">
         <p className="profile-name">{account ? account.name || account.email || "Пользователь Roomlet" : "Гость"}</p>
         <p className="profile-role">Личный кабинет</p>
