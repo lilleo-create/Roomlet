@@ -49,3 +49,17 @@ test('Telegram transport retries only failures before the secure connection', as
   await assert.rejects(retryTelegramConnection(async () => {calls++;throw Object.assign(new Error('connect'),{beforeSecureConnection:true});}));
   assert.equal(calls,4);
 });
+
+test('Telegram transport decodes compressed JWKS and bounds the decoded response', async () => {
+  const transport=await import('../src/lib/telegram/transport.ts');
+  const {gzipSync,deflateSync,brotliCompressSync}=await import('node:zlib');
+  assert.equal(typeof transport.decodeTelegramBody,'function','Compressed Telegram responses need decoding before JSON parsing');
+  const body=Buffer.from(JSON.stringify({keys:[{kty:'RSA',kid:'telegram-public-key'}]}));
+  for(const [encoding,bytes] of [['gzip',gzipSync(body)],['deflate',deflateSync(body)],['br',brotliCompressSync(body)],['identity',body]] as const) {
+    assert.deepEqual(JSON.parse(transport.decodeTelegramBody(bytes,encoding)),JSON.parse(body.toString()));
+  }
+  assert.throws(()=>transport.decodeTelegramBody(gzipSync(Buffer.alloc(65537)), 'gzip'));
+  assert.throws(()=>transport.decodeTelegramBody(Buffer.alloc(65537),undefined));
+  assert.throws(()=>transport.decodeTelegramBody(Buffer.from('not gzip'),'gzip'));
+  assert.throws(()=>transport.decodeTelegramBody(body,'unsupported'));
+});

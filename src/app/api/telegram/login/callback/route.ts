@@ -45,7 +45,7 @@ export async function GET(request:Request) {
     else if(result.result==='merge-required') destination='/profile/telegram?confirm=merge';
     else if(flow.intent==='link') destination='/profile/telegram?error='+encodeURIComponent(result.result);
   } catch (error) {
-    const reference=telegramFailure(stage,typeof error==='object' && error && 'code' in error ? String(error.code) : undefined);
+    const reference=telegramFailure(stage,typeof error==='object' && error && 'code' in error ? String(error.code) : error instanceof Error ? error.name : undefined);
     destination += '&reference='+reference;
   }
   const response=NextResponse.redirect(new URL(destination,origin),303);
